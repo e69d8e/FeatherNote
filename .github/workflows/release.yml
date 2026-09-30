@@ -1,0 +1,448 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag Name (e.g. v1.0.0)'
+        required: false
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  # ==========================================
+  # 1. Android: 32位 / 64位 / 通用 APK / AAB
+  # ==========================================
+  build-android:
+    name: Build Android (32/64-bit APK & AAB)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Configure Android release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
+            echo "::warning::ANDROID_KEYSTORE_BASE64 secret is not set - Android release builds will fall back to DEBUG signing."
+            exit 0
+          fi
+          echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/app/feathernote-release.jks
+          cat > android/key.properties <<EOF
+          storePassword=${ANDROID_KEYSTORE_PASSWORD}
+          keyPassword=${ANDROID_KEY_PASSWORD}
+          keyAlias=${ANDROID_KEY_ALIAS}
+          storeFile=feathernote-release.jks
+          EOF
+          keytool -list -keystore android/app/feathernote-release.jks \
+            -storepass "${ANDROID_KEYSTORE_PASSWORD}" -alias "${ANDROID_KEY_ALIAS}" > /dev/null
+          echo "Release keystore ready (alias: ${ANDROID_KEY_ALIAS})."
+
+      - name: Build Split per ABI APKs (32-bit & 64-bit)
+        run: flutter build apk --split-per-abi --release
+
+      - name: Build Universal APK
+        run: flutter build apk --release
+
+      - name: Build Android App Bundle (AAB)
+        run: flutter build appbundle --release
+
+      - name: Verify Android release signatures
+        run: |
+          if [ ! -f android/key.properties ]; then
+            echo "::warning::No release keystore configured, skipping signature verification (DEBUG signed build)."
+            exit 0
+          fi
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+          APKSIGNER=$(find "${SDK_ROOT}/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -n 1)
+          if [ -z "${APKSIGNER}" ]; then
+            echo "::error::apksigner not found under ${SDK_ROOT}/build-tools"
+            exit 1
+          fi
+          fail=0
+          for apk in build/app/outputs/flutter-apk/*-release.apk; do
+            echo "== ${apk}"
+            "${APKSIGNER}" verify --print-certs "${apk}" | grep -E "certificate DN|SHA-256 digest"
+            if ! "${APKSIGNER}" verify --print-certs "${apk}" | grep -q "CN=FeatherNote"; then
+              echo "::error::${apk} is not signed with the FeatherNote release key"
+              fail=1
+            fi
+            if "${APKSIGNER}" verify --print-certs "${apk}" | grep -qi "Android Debug"; then
+              echo "::error::${apk} is signed with the Android DEBUG key"
+              fail=1
+            fi
+          done
+          for aab in build/app/outputs/bundle/release/app-release.aab; do
+            echo "== ${aab}"
+            keytool -printcert -jarfile "${aab}" | grep -E "CN=FeatherNote|SHA256"
+            if ! keytool -printcert -jarfile "${aab}" | grep -q "CN=FeatherNote"; then
+              echo "::error::${aab} is not signed with the FeatherNote release key"
+              fail=1
+            fi
+          done
+          exit ${fail}
+
+      - name: Organize Android artifacts
+        run: |
+          VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
+          mkdir -p artifacts
+
+          # Copy Split APKs
+          if [ -f "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" "artifacts/FeatherNote-Android-armeabi-v7a-${VERSION}.apk"
+          fi
+          if [ -f "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" "artifacts/FeatherNote-Android-arm64-v8a-${VERSION}.apk"
+          fi
+          if [ -f "build/app/outputs/flutter-apk/app-x86_64-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-x86_64-release.apk" "artifacts/FeatherNote-Android-x86_64-${VERSION}.apk"
+          fi
+
+          # Copy Universal APK
+          if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+            cp "build/app/outputs/flutter-apk/app-release.apk" "artifacts/FeatherNote-Android-Universal-${VERSION}.apk"
+          fi
+
+          # Copy AAB
+          if [ -f "build/app/outputs/bundle/release/app-release.aab" ]; then
+            cp "build/app/outputs/bundle/release/app-release.aab" "artifacts/FeatherNote-Android-${VERSION}.aab"
+          fi
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-artifacts
+          path: artifacts/*
+
+  # ==========================================
+  # 2. Windows: .exe 安装包 & 绿色 Zip 包
+  # ==========================================
+  build-windows:
+    name: Build Windows (EXE Setup & Zip)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows Release
+        run: flutter build windows --release
+
+      - name: Package Windows Artifacts (EXE Setup & ZIP)
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.event.inputs.tag_name || github.ref_name }}"
+          $VERSION_NUM = $VERSION.TrimStart('v')
+          New-Item -ItemType Directory -Force -Path "artifacts"
+
+          # 1. Locate the executable directory
+          $exe = Get-ChildItem -Path "build\windows" -Recurse -Filter "feathernote.exe" | Select-Object -First 1
+          if (-not $exe) {
+              $exe = Get-ChildItem -Path "build\windows" -Recurse -Filter "*.exe" | Where-Object { $_.FullName -notmatch "\.dir" -and $_.FullName -notmatch "CMakeFiles" } | Select-Object -First 1
+          }
+          if (-not $exe) {
+              Write-Error "Windows executable not found in build directory."
+              exit 1
+          }
+
+          $releasePath = $exe.Directory.FullName
+          Write-Host "Found release directory: $releasePath"
+          $artifactsPath = (Resolve-Path "artifacts").Path
+
+          # 2. Package Portable ZIP
+          Compress-Archive -Path "$releasePath\*" -DestinationPath "artifacts\FeatherNote-Windows-x64-$VERSION.zip"
+
+          # 3. Compile Inno Setup EXE Installer
+          $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $isccPath)) {
+              choco install innosetup -y
+          }
+          if (Test-Path $isccPath) {
+              & $isccPath /DMyAppVersion="$VERSION_NUM" /DSourceDir="$releasePath" /DOutputDir="$artifactsPath" windows\packaging\installer.iss
+          } else {
+              Write-Warning "Inno Setup compiler not found, skipping EXE installer creation."
+          }
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: artifacts/FeatherNote-Windows-*
+
+  # ==========================================
+  # 3. macOS: .dmg 镜像包 & .zip 包
+  # ==========================================
+  build-macos:
+    name: Build macOS (DMG & ZIP)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install create-dmg
+        run: brew install create-dmg || true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build macOS Release
+        run: flutter build macos --release
+
+      - name: Package macOS Artifacts (DMG & ZIP)
+        run: |
+          VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
+          mkdir -p artifacts
+          APP_PATH=$(find build/macos/Build/Products/Release -name "*.app" -maxdepth 1 | head -n 1)
+          if [ -n "$APP_PATH" ]; then
+            APP_DIR=$(dirname "$APP_PATH")
+            APP_NAME=$(basename "$APP_PATH")
+
+            # 1. Package ZIP
+            cd "$APP_DIR"
+            zip -r -y "../../../../../artifacts/FeatherNote-macOS-${VERSION}.zip" "$APP_NAME"
+            cd -
+
+            # 2. Package DMG
+            create-dmg \
+              --volname "FeatherNote" \
+              --window-pos 200 120 \
+              --window-size 600 400 \
+              --icon-size 100 \
+              --icon "$APP_NAME" 150 190 \
+              --hide-extension "$APP_NAME" \
+              --app-drop-link 450 185 \
+              "artifacts/FeatherNote-macOS-${VERSION}.dmg" \
+              "$APP_PATH" || \
+            hdiutil create -volname "FeatherNote" -srcfolder "$APP_PATH" -ov -format UDZO "artifacts/FeatherNote-macOS-${VERSION}.dmg"
+          else
+            echo "Error: macOS .app bundle not found."
+            exit 1
+          fi
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: artifacts/FeatherNote-macOS-*
+
+  # ==========================================
+  # 4. Linux: .deb 安装包 & .tar.gz 运行包
+  # ==========================================
+  build-linux:
+    name: Build Linux (DEB & Tar.gz)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Linux Release
+        run: flutter build linux --release
+
+      - name: Package Linux Artifacts (DEB & Tar.gz)
+        run: |
+          VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
+          VERSION_NUM="${VERSION#v}"
+          mkdir -p artifacts
+          BUNDLE_DIR=$(find build/linux -type d -name "bundle" | head -n 1)
+
+          if [ -n "$BUNDLE_DIR" ]; then
+            # 1. Package .tar.gz
+            tar -czvf "artifacts/FeatherNote-Linux-x64-${VERSION}.tar.gz" -C "$BUNDLE_DIR" .
+
+            # 2. Package .deb
+            DEB_DIR="deb_package"
+            mkdir -p "$DEB_DIR/DEBIAN"
+            mkdir -p "$DEB_DIR/usr/lib/feathernote"
+            mkdir -p "$DEB_DIR/usr/bin"
+            mkdir -p "$DEB_DIR/usr/share/applications"
+            mkdir -p "$DEB_DIR/usr/share/icons/hicolor/256x256/apps"
+
+            printf "Package: feathernote\nVersion: %s\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: FeatherNote Authors <https://github.com/e69d8e/FeatherNote>\nDescription: 轻盈如羽的跨平台离线 Markdown 笔记与待办应用 (Flutter)\n" "${VERSION_NUM}" > "$DEB_DIR/DEBIAN/control"
+
+            cp -r "$BUNDLE_DIR"/* "$DEB_DIR/usr/lib/feathernote/"
+            ln -s "/usr/lib/feathernote/feathernote" "$DEB_DIR/usr/bin/feathernote"
+            if [ -f "assets/icons/app_icon.png" ]; then
+              cp "assets/icons/app_icon.png" "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/feathernote.png"
+            fi
+
+            printf "[Desktop Entry]\nName=羽记\nGenericName=FeatherNote\nComment=轻盈如羽的跨平台离线 Markdown 笔记与待办应用\nExec=feathernote\nIcon=feathernote\nTerminal=false\nType=Application\nCategories=Utility;Office;\n" > "$DEB_DIR/usr/share/applications/feathernote.desktop"
+
+            chmod -R 755 "$DEB_DIR"
+            dpkg-deb --build "$DEB_DIR" "artifacts/FeatherNote-Linux-amd64-${VERSION}.deb"
+          else
+            echo "Error: Linux bundle directory not found."
+            exit 1
+          fi
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: artifacts/FeatherNote-Linux-*
+
+  # ==========================================
+  # 5. iOS: IPA 安装包
+  # ==========================================
+  build-ios:
+    name: Build iOS (IPA)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS Release Archive
+        run: flutter build ipa --no-codesign --release
+
+      - name: Package iOS IPA
+        run: |
+          VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
+          mkdir -p artifacts Payload
+
+          APP_SOURCE=$(find build/ios/archive -name "*.app" | head -n 1)
+          if [ -z "$APP_SOURCE" ]; then
+            APP_SOURCE="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+          fi
+
+          if [ -d "$APP_SOURCE" ]; then
+            cp -r "$APP_SOURCE" Payload/
+            zip -r -y "artifacts/FeatherNote-iOS-unsigned-${VERSION}.ipa" Payload
+            rm -rf Payload
+          else
+            echo "Error: Runner.app not found in xcarchive"
+            exit 1
+          fi
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-artifact
+          path: artifacts/FeatherNote-iOS-*.ipa
+
+  # ==========================================
+  # 6. Web: Web Application Bundle
+  # ==========================================
+  build-web:
+    name: Build Web (ZIP)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Web Release
+        run: flutter build web --release
+
+      - name: Package Web artifact
+        run: |
+          VERSION="${{ github.event.inputs.tag_name || github.ref_name }}"
+          mkdir -p artifacts
+          cd build/web
+          zip -r "../../artifacts/FeatherNote-Web-${VERSION}.zip" .
+          cd ../..
+
+      - name: Upload Web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-artifact
+          path: artifacts/FeatherNote-Web-*.zip
+
+  # ==========================================
+  # 7. Publish: Aggregate & Publish to Releases
+  # ==========================================
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-android, build-windows, build-macos, build-linux, build-ios, build-web]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: List all release files
+        run: ls -la release-artifacts
+
+      - name: Publish Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          files: release-artifacts/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
