@@ -45,6 +45,12 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     state = state.copyWith(autoSaveMarkdown: value);
     await _repo.saveSettings(state);
   }
+
+  /// 切换启动时自动检查更新
+  Future<void> toggleAutoCheckUpdate(bool value) async {
+    state = state.copyWith(autoCheckUpdate: value);
+    await _repo.saveSettings(state);
+  }
 }
 
 /// 设置 StateNotifierProvider

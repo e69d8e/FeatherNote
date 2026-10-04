@@ -14,6 +14,7 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
   static const _keyFontScale = 'feathernote_font_scale';
   static const _keyDefaultColor = 'feathernote_default_color';
   static const _keyAutoSaveMd = 'feathernote_auto_save_md';
+  static const _keyAutoCheckUpdate = 'feathernote_auto_check_update';
 
   SharedPrefsSettingsRepository(this._prefs);
 
@@ -38,6 +39,7 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
     final fontScale = _prefs.getDouble(_keyFontScale) ?? 1.0;
     final defaultColor = _prefs.getString(_keyDefaultColor) ?? 'default';
     final autoSaveMd = _prefs.getBool(_keyAutoSaveMd) ?? true;
+    final autoCheckUpdate = _prefs.getBool(_keyAutoCheckUpdate) ?? true;
 
     return AppSettings(
       themeMode: themeMode,
@@ -47,6 +49,7 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
       fontScale: fontScale,
       defaultColorId: defaultColor,
       autoSaveMarkdown: autoSaveMd,
+      autoCheckUpdate: autoCheckUpdate,
     );
   }
 
@@ -59,5 +62,6 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
     await _prefs.setDouble(_keyFontScale, settings.fontScale);
     await _prefs.setString(_keyDefaultColor, settings.defaultColorId);
     await _prefs.setBool(_keyAutoSaveMd, settings.autoSaveMarkdown);
+    await _prefs.setBool(_keyAutoCheckUpdate, settings.autoCheckUpdate);
   }
 }

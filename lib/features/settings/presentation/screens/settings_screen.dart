@@ -11,7 +11,10 @@ import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/feather_color_picker.dart';
 import '../../../../core/widgets/feather_dialog_text_field.dart';
 import '../../domain/models/app_settings.dart';
+import '../../domain/repositories/update_repository.dart';
 import '../controllers/settings_controller.dart';
+import '../controllers/update_controller.dart';
+import '../widgets/app_update_dialog.dart';
 import '../../../notes/domain/models/note.dart';
 
 /// 设置中心页面
@@ -22,6 +25,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final settingsCtrl = ref.read(settingsProvider.notifier);
+    final updateState = ref.watch(updateControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -116,8 +120,36 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.flutter_dash, color: AppColors.primary),
             title: const Text('羽记 / FeatherNote'),
-            subtitle: const Text('v1.0.0 · 行云流水，轻盈如羽'),
-            onTap: () => _showAboutDialog(context),
+            subtitle: Text(updateState.currentVersion.isEmpty
+                ? '行云流水，轻盈如羽'
+                : 'v${updateState.currentVersion} · 行云流水，轻盈如羽'),
+            onTap: () => _showAboutDialog(context, updateState.currentVersion),
+          ),
+
+          // 手动检查更新
+          ListTile(
+            leading: const Icon(Icons.system_update_alt_rounded),
+            title: const Text('检查更新'),
+            subtitle: Text(updateState.currentVersion.isEmpty
+                ? '正在读取版本信息…'
+                : '当前版本 v${updateState.currentVersion}'),
+            trailing: updateState.checking
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+            onTap: updateState.checking ? null : () => _checkForUpdateManually(context, ref),
+          ),
+
+          // 启动时自动检查更新开关
+          SwitchListTile(
+            secondary: const Icon(Icons.sync_outlined),
+            title: const Text('自动检查更新'),
+            subtitle: const Text('启动时联网查询 GitHub 新版本 (每 24 小时最多一次)'),
+            value: settings.autoCheckUpdate,
+            onChanged: (value) => settingsCtrl.toggleAutoCheckUpdate(value),
           ),
         ],
       ),
@@ -414,11 +446,11 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  void _showAboutDialog(BuildContext context) {
+  void _showAboutDialog(BuildContext context, String currentVersion) {
     showAboutDialog(
       context: context,
       applicationName: '羽记 · FeatherNote',
-      applicationVersion: '1.0.0',
+      applicationVersion: currentVersion.isEmpty ? null : currentVersion,
       applicationIcon: const Icon(Icons.flutter_dash, size: 48, color: AppColors.primary),
       children: const [
         Text('羽记是一款追求极致轻盈、行云流水般书写体验的跨平台离线记事本应用。'),
@@ -426,5 +458,41 @@ class SettingsScreen extends ConsumerWidget {
         Text('技术栈：Flutter · Riverpod · Drift/SQLite · GoRouter · Material 3'),
       ],
     );
+  }
+
+  /// 手动检查更新，用弹窗/提示条反馈结果
+  Future<void> _checkForUpdateManually(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final errorColor = Theme.of(context).colorScheme.error;
+    try {
+      final update = await ref.read(updateControllerProvider.notifier).checkManually();
+      if (!context.mounted) return;
+      if (update == null) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('当前已是最新版本 🎉'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        await showAppUpdateDialog(context, update);
+      }
+    } on UpdateCheckException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: errorColor,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('检查更新失败：$e'),
+          backgroundColor: errorColor,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }

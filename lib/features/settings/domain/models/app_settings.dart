@@ -21,6 +21,7 @@ class AppSettings {
   final double fontScale;
   final String defaultColorId;
   final bool autoSaveMarkdown;
+  final bool autoCheckUpdate;
 
   const AppSettings({
     this.themeMode = ThemeMode.system,
@@ -30,6 +31,7 @@ class AppSettings {
     this.fontScale = 1.0,
     this.defaultColorId = 'default',
     this.autoSaveMarkdown = true,
+    this.autoCheckUpdate = true,
   });
 
   AppSettings copyWith({
@@ -40,6 +42,7 @@ class AppSettings {
     double? fontScale,
     String? defaultColorId,
     bool? autoSaveMarkdown,
+    bool? autoCheckUpdate,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -49,6 +52,7 @@ class AppSettings {
       fontScale: fontScale ?? this.fontScale,
       defaultColorId: defaultColorId ?? this.defaultColorId,
       autoSaveMarkdown: autoSaveMarkdown ?? this.autoSaveMarkdown,
+      autoCheckUpdate: autoCheckUpdate ?? this.autoCheckUpdate,
     );
   }
 
@@ -62,7 +66,8 @@ class AppSettings {
         other.sortAscending == sortAscending &&
         other.fontScale == fontScale &&
         other.defaultColorId == defaultColorId &&
-        other.autoSaveMarkdown == autoSaveMarkdown;
+        other.autoSaveMarkdown == autoSaveMarkdown &&
+        other.autoCheckUpdate == autoCheckUpdate;
   }
 
   @override
@@ -74,5 +79,6 @@ class AppSettings {
         fontScale,
         defaultColorId,
         autoSaveMarkdown,
+        autoCheckUpdate,
       );
 }

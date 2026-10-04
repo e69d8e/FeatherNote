@@ -8,7 +8,10 @@ import '../../../../core/widgets/feather_empty_state.dart';
 import '../../../../core/widgets/feather_search_bar.dart';
 import '../../../../core/widgets/feather_tag_chip.dart';
 import '../../../settings/domain/models/app_settings.dart';
+import '../../../settings/domain/models/app_update_info.dart';
 import '../../../settings/presentation/controllers/settings_controller.dart';
+import '../../../settings/presentation/controllers/update_controller.dart';
+import '../../../settings/presentation/widgets/app_update_dialog.dart';
 import '../../../tags/domain/models/tag.dart';
 import '../../../tags/presentation/controllers/tags_controller.dart';
 import '../../../todos/presentation/controllers/todo_controller.dart';
@@ -39,6 +42,12 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
           _currentTabIndex = _tabController.index;
         });
       }
+    });
+    // 首帧渲染完成后再联网检查更新，避免拖慢冷启动
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final autoCheckEnabled = ref.read(settingsProvider).autoCheckUpdate;
+      ref.read(updateControllerProvider.notifier).checkOnStartup(enabled: autoCheckEnabled);
     });
   }
 
@@ -102,6 +111,16 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
     final selectedTag = ref.watch(selectedTagFilterProvider);
     final viewMode = ref.watch(settingsProvider.select((s) => s.viewMode));
     final todosCount = ref.watch(pendingTodosProvider.select((t) => t.length));
+
+    // 启动自动检查发现新版本时弹出提示，展示一次后即清除
+    ref.listen<AppUpdateInfo?>(
+      updateControllerProvider.select((s) => s.pendingAutoUpdate),
+      (previous, next) {
+        if (next != null && next != previous && mounted) {
+          showAppUpdateDialog(context, next);
+        }
+      },
+    );
 
     final notesCount = notesAsync.valueOrNull?.length ?? 0;
 
