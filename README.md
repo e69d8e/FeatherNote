@@ -27,18 +27,15 @@
 
 ## 📦 下载安装
 
-前往 [Releases 页面](https://github.com/e69d8e/FeatherNote/releases/latest) 下载对应平台的安装包：
+前往 [Releases 页面](https://github.com/e69d8e/FeatherNote/releases/latest) 下载最新版本。发布流水线只构建以下三个 Android 安装包：
 
-| 平台 | 安装包 |
-| --- | --- |
-| Android | `FeatherNote-Android-*.apk`（推荐 arm64；Universal 兼容全部架构） |
-| iOS | `FeatherNote-iOS-unsigned-*.ipa`（未签名，需自行签名或侧载） |
-| Windows | `FeatherNote-Windows-x64-*-Setup.exe`（安装版）或 `*.zip`（免安装版） |
-| macOS | `FeatherNote-macOS-*.dmg` 或 `*.zip` |
-| Linux | `FeatherNote-Linux-amd64-*.deb` 或 `*.tar.gz` |
-| Web | `FeatherNote-Web-*.zip`（解压后部署到任意静态服务器） |
+| 安装包 | 适用设备 | 说明 |
+| --- | --- | --- |
+| `FeatherNote-Android-arm64-v8a.apk` | 绝大多数现代 64 位 Android 手机 | **推荐**，体积最小 |
+| `FeatherNote-Android-armeabi-v7a.apk` | 老旧 32 位 ARM 设备 | 兼容性优先 |
+| `FeatherNote-Android-Universal.apk` | 全部架构（含 x86_64 模拟器） | 通用包，体积稍大 |
 
-> 💡 macOS 版本未经公证：首次打开若被 Gatekeeper 拦截，请前往「系统设置 → 隐私与安全性」点击「仍要打开」，或执行 `xattr -cr /Applications/FeatherNote.app`。
+> iOS / Windows / macOS / Linux / Web 版本不再随 Releases 发布，如需使用请参考下方「从源码构建」在本地自行编译。
 
 ## 🚀 从源码构建
 
