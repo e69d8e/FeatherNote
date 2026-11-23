@@ -1,21 +1,25 @@
 import 'dart:convert';
 import 'dart:isolate';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../../../../core/providers/database_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/feather_color_picker.dart';
-import '../../../../core/widgets/feather_dialog_text_field.dart';
+import '../../../../core/widgets/feather_content_width.dart';
 import '../../domain/models/app_settings.dart';
 import '../../domain/repositories/update_repository.dart';
 import '../controllers/settings_controller.dart';
 import '../controllers/update_controller.dart';
 import '../widgets/app_update_dialog.dart';
 import '../../../notes/domain/models/note.dart';
+import '../../../tags/domain/models/tag.dart';
 
 /// 设置中心页面
 class SettingsScreen extends ConsumerWidget {
@@ -29,129 +33,172 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('设置与个性化', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text(
+          '设置与个性化',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        children: [
-          _buildSectionHeader(context, '主题与外观'),
+      body: FeatherContentWidth(
+        maxWidth: 760,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          children: [
+            _buildSectionHeader(context, '主题与外观'),
 
-          // 主题模式切换 (系统/明亮/深色)
-          ListTile(
-            leading: const Icon(Icons.palette_outlined),
-            title: const Text('主题外观'),
-            subtitle: Text(_getThemeModeName(settings.themeMode)),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => _showThemeModeDialog(context, settingsCtrl, settings.themeMode),
-          ),
-
-          // 默认笔记卡片配色
-          ListTile(
-            leading: const Icon(Icons.color_lens_outlined),
-            title: const Text('新建笔记默认色'),
-            subtitle: Text(AppColors.getNoteColor(settings.defaultColorId).name),
-            trailing: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: AppColors.getNoteColor(settings.defaultColorId).lightBackground,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.getNoteColor(settings.defaultColorId).accentColor,
-                  width: 2,
-                ),
+            // 主题模式切换 (系统/明亮/深色)
+            ListTile(
+              leading: const Icon(Icons.palette_outlined),
+              title: const Text('主题外观'),
+              subtitle: Text(_getThemeModeName(settings.themeMode)),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showThemeModeDialog(
+                context,
+                settingsCtrl,
+                settings.themeMode,
               ),
             ),
-            onTap: () => _showDefaultColorDialog(context, settingsCtrl, settings.defaultColorId),
-          ),
 
-          // 字体大小调节
-          ListTile(
-            leading: const Icon(Icons.format_size_rounded),
-            title: const Text('全局字体大小'),
-            subtitle: Text(_getFontScaleName(settings.fontScale)),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => _showFontScaleDialog(context, settingsCtrl, settings.fontScale),
-          ),
+            // 默认笔记卡片配色
+            ListTile(
+              leading: const Icon(Icons.color_lens_outlined),
+              title: const Text('新建笔记默认色'),
+              subtitle: Text(
+                AppColors.getNoteColor(settings.defaultColorId).name,
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: AppColors.getNoteColor(settings.defaultColorId)
+                          .lightBackground,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.getNoteColor(settings.defaultColorId)
+                            .accentColor,
+                        width: 2,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.check_rounded,
+                      size: 14,
+                      color: AppColors.getNoteColor(settings.defaultColorId)
+                          .accentColor,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              ),
+              onTap: () => _showDefaultColorDialog(
+                context,
+                settingsCtrl,
+                settings.defaultColorId,
+              ),
+            ),
 
-          const Divider(height: 32),
-          _buildSectionHeader(context, '视图与排序'),
+            // 字体大小调节
+            ListTile(
+              leading: const Icon(Icons.format_size_rounded),
+              title: const Text('全局字体大小'),
+              subtitle: Text(_getFontScaleName(settings.fontScale)),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showFontScaleDialog(
+                context,
+                settingsCtrl,
+                settings.fontScale,
+              ),
+            ),
 
-          // 默认视图
-          ListTile(
-            leading: const Icon(Icons.dashboard_outlined),
-            title: const Text('主页卡片布局'),
-            subtitle: Text(_getViewModeName(settings.viewMode)),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => _showViewModeDialog(context, settingsCtrl, settings.viewMode),
-          ),
+            const Divider(height: 32),
+            _buildSectionHeader(context, '视图与排序'),
 
-          // 默认排序规则
-          ListTile(
-            leading: const Icon(Icons.sort_rounded),
-            title: const Text('笔记排序方式'),
-            subtitle: Text(_getSortFieldName(settings.sortField)),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => _showSortDialog(context, settingsCtrl, settings),
-          ),
+            // 默认视图
+            ListTile(
+              leading: const Icon(Icons.dashboard_outlined),
+              title: const Text('主页卡片布局'),
+              subtitle: Text(_getViewModeName(settings.viewMode)),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () =>
+                  _showViewModeDialog(context, settingsCtrl, settings.viewMode),
+            ),
 
-          const Divider(height: 32),
-          _buildSectionHeader(context, '数据管理与备份'),
+            // 默认排序规则
+            ListTile(
+              leading: const Icon(Icons.sort_rounded),
+              title: const Text('笔记排序方式'),
+              subtitle: Text(_getSortFieldName(settings.sortField)),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showSortDialog(context, settingsCtrl, settings),
+            ),
 
-          // 导出 JSON 备份
-          ListTile(
-            leading: const Icon(Icons.cloud_download_outlined),
-            title: const Text('导出全部数据 (JSON)'),
-            subtitle: const Text('备份所有笔记内容与标签配置'),
-            onTap: () => _exportJsonBackup(context, ref),
-          ),
+            const Divider(height: 32),
+            _buildSectionHeader(context, '数据管理与备份'),
 
-          // 导入 JSON 备份
-          ListTile(
-            leading: const Icon(Icons.cloud_upload_outlined),
-            title: const Text('导入数据恢复'),
-            subtitle: const Text('从 JSON 文本或备份文件导入笔记'),
-            onTap: () => _showImportJsonDialog(context, ref),
-          ),
+            // 导出 JSON 备份
+            ListTile(
+              leading: const Icon(Icons.cloud_download_outlined),
+              title: const Text('导出全部数据 (JSON)'),
+              subtitle: const Text('备份所有笔记内容与标签颜色配置'),
+              onTap: () => _exportJsonBackup(context, ref),
+            ),
 
-          const Divider(height: 32),
-          _buildSectionHeader(context, '关于羽记'),
+            // 导入 JSON 备份
+            ListTile(
+              leading: const Icon(Icons.cloud_upload_outlined),
+              title: const Text('导入数据恢复'),
+              subtitle: const Text('从 JSON 备份文件或粘贴文本导入，同 ID 笔记会被覆盖'),
+              onTap: () => _showImportJsonDialog(context, ref),
+            ),
 
-          ListTile(
-            leading: const Icon(Icons.flutter_dash, color: AppColors.primary),
-            title: const Text('羽记 / FeatherNote'),
-            subtitle: Text(updateState.currentVersion.isEmpty
-                ? '行云流水，轻盈如羽'
-                : 'v${updateState.currentVersion} · 行云流水，轻盈如羽'),
-            onTap: () => _showAboutDialog(context, updateState.currentVersion),
-          ),
+            const Divider(height: 32),
+            _buildSectionHeader(context, '关于羽记'),
 
-          // 手动检查更新
-          ListTile(
-            leading: const Icon(Icons.system_update_alt_rounded),
-            title: const Text('检查更新'),
-            subtitle: Text(updateState.currentVersion.isEmpty
-                ? '正在读取版本信息…'
-                : '当前版本 v${updateState.currentVersion}'),
-            trailing: updateState.checking
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : null,
-            onTap: updateState.checking ? null : () => _checkForUpdateManually(context, ref),
-          ),
+            ListTile(
+              leading: const Icon(Icons.flutter_dash, color: AppColors.primary),
+              title: const Text('羽记 / FeatherNote'),
+              subtitle: Text(
+                updateState.currentVersion.isEmpty
+                    ? '行云流水，轻盈如羽'
+                    : 'v${updateState.currentVersion} · 行云流水，轻盈如羽',
+              ),
+              onTap: () =>
+                  _showAboutDialog(context, updateState.currentVersion),
+            ),
 
-          // 启动时自动检查更新开关
-          SwitchListTile(
-            secondary: const Icon(Icons.sync_outlined),
-            title: const Text('自动检查更新'),
-            subtitle: const Text('启动时联网查询 GitHub 新版本 (每 24 小时最多一次)'),
-            value: settings.autoCheckUpdate,
-            onChanged: (value) => settingsCtrl.toggleAutoCheckUpdate(value),
-          ),
-        ],
+            // 手动检查更新
+            ListTile(
+              leading: const Icon(Icons.system_update_alt_rounded),
+              title: const Text('检查更新'),
+              subtitle: Text(
+                updateState.currentVersion.isEmpty
+                    ? '正在读取版本信息…'
+                    : '当前版本 v${updateState.currentVersion}',
+              ),
+              trailing: updateState.checking
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: updateState.checking
+                  ? null
+                  : () => _checkForUpdateManually(context, ref),
+            ),
+
+            // 启动时自动检查更新开关
+            SwitchListTile(
+              secondary: const Icon(Icons.sync_outlined),
+              title: const Text('自动检查更新'),
+              subtitle: const Text('启动时联网查询 GitHub 新版本 (每 24 小时最多一次)'),
+              value: settings.autoCheckUpdate,
+              onChanged: (value) => settingsCtrl.toggleAutoCheckUpdate(value),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -195,7 +242,11 @@ class SettingsScreen extends ConsumerWidget {
     };
   }
 
-  void _showThemeModeDialog(BuildContext context, SettingsNotifier ctrl, ThemeMode current) {
+  void _showThemeModeDialog(
+    BuildContext context,
+    SettingsNotifier ctrl,
+    ThemeMode current,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => SimpleDialog(
@@ -225,7 +276,11 @@ class SettingsScreen extends ConsumerWidget {
     return '标准 (1.0x)';
   }
 
-  void _showFontScaleDialog(BuildContext context, SettingsNotifier ctrl, double current) {
+  void _showFontScaleDialog(
+    BuildContext context,
+    SettingsNotifier ctrl,
+    double current,
+  ) {
     const scales = [
       (0.9, '偏小 (0.9x)'),
       (1.0, '标准 (1.0x)'),
@@ -255,7 +310,11 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showDefaultColorDialog(BuildContext context, SettingsNotifier ctrl, String current) {
+  void _showDefaultColorDialog(
+    BuildContext context,
+    SettingsNotifier ctrl,
+    String current,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -267,7 +326,10 @@ class SettingsScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('选择新建笔记默认配色', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+              const Text(
+                '选择新建笔记默认配色',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              ),
               const SizedBox(height: 16),
               FeatherColorPicker(
                 selectedColorId: current,
@@ -283,7 +345,11 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showViewModeDialog(BuildContext context, SettingsNotifier ctrl, NoteViewMode current) {
+  void _showViewModeDialog(
+    BuildContext context,
+    SettingsNotifier ctrl,
+    NoteViewMode current,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => SimpleDialog(
@@ -306,7 +372,11 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showSortDialog(BuildContext context, SettingsNotifier ctrl, AppSettings settings) {
+  void _showSortDialog(
+    BuildContext context,
+    SettingsNotifier ctrl,
+    AppSettings settings,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => SimpleDialog(
@@ -333,32 +403,53 @@ class SettingsScreen extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
     final errorColor = Theme.of(context).colorScheme.error;
     try {
-      final repo = ref.read(noteRepositoryProvider);
-      final notes = await repo.getAllNotes();
+      final notes = await ref.read(noteRepositoryProvider).getAllNotes();
+      final tags = await ref.read(tagRepositoryProvider).getAllTags();
 
       // 笔记数量大时把 JSON 序列化放入后台 isolate，避免卡顿 UI
       // (Web 平台不支持 isolate，退回主线程执行)
       final jsonString = kIsWeb
-          ? _encodeNotesJson(notes)
-          : await Isolate.run(() => _encodeNotesJson(notes));
+          ? _encodeBackupJson(notes, tags)
+          : await Isolate.run(() => _encodeBackupJson(notes, tags));
+      final fileName =
+          'feathernote-backup-${_timestampForFileName(DateTime.now())}.json';
+      final bytes = Uint8List.fromList(utf8.encode(jsonString));
 
-      await Clipboard.setData(ClipboardData(text: jsonString));
-
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('备份数据导出成功'),
-            content: Text('已将全部 ${notes.length} 条笔记数据以 JSON 格式复制到系统剪贴板，您可以粘贴保存到文件中。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('确定'),
-              ),
-            ],
-          ),
+      String message;
+      try {
+        // Web 端优先调用系统分享；浏览器不支持时 share_plus 会自动下载文件。
+        final result = await Share.shareXFiles(
+          [XFile.fromData(bytes, mimeType: 'application/json', name: fileName)],
+          subject: '羽记备份',
+          text: '羽记备份：${notes.length} 条笔记，${tags.length} 个标签',
         );
+        message = switch (result.status) {
+          ShareResultStatus.success => '备份文件已通过系统分享保存。',
+          ShareResultStatus.dismissed => '分享已取消，未保存备份文件。',
+          ShareResultStatus.unavailable => '备份文件已生成，浏览器已开始下载。',
+        };
+      } catch (_) {
+        // 桌面 Linux 等不支持分享的平台退回剪贴板，至少不丢数据。
+        await Clipboard.setData(ClipboardData(text: jsonString));
+        message = '当前平台暂不支持保存文件，已将 JSON 备份复制到剪贴板。';
       }
+
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('备份数据已导出'),
+          content: Text(
+            '$message\n\n文件名：$fileName\n包含 ${notes.length} 条笔记、${tags.length} 个标签。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
@@ -370,68 +461,244 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  /// 把全部笔记序列化为格式化 JSON 文本
-  static String _encodeNotesJson(List<Note> notes) {
-    final jsonList = notes.map((n) => n.toJson()).toList();
-    return const JsonEncoder.withIndent('  ').convert(jsonList);
+  /// 把全部笔记与标签配置序列化为格式化 JSON 文本
+  static String _encodeBackupJson(List<Note> notes, List<Tag> tags) {
+    return const JsonEncoder.withIndent('  ').convert({
+      'format': 'feathernote-backup',
+      'version': 2,
+      'exportedAt': DateTime.now().toIso8601String(),
+      'notes': notes.map((n) => n.toJson()).toList(),
+      'tags': tags
+          .map(
+            (t) => {
+              'id': t.id,
+              'name': t.name,
+              'color': t.color,
+              'createdAt': t.createdAt.toIso8601String(),
+            },
+          )
+          .toList(),
+    });
   }
 
-  void _showImportJsonDialog(BuildContext context, WidgetRef ref) {
-    var text = '';
-    showDialog(
+  static String _timestampForFileName(DateTime time) {
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${time.year}${two(time.month)}${two(time.day)}-'
+        '${two(time.hour)}${two(time.minute)}${two(time.second)}';
+  }
+
+  Future<void> _showImportJsonDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final controller = TextEditingController();
+    String? fileName;
+    var readingFile = false;
+
+    final data = await showDialog<_BackupData>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          Future<void> pickBackupFile() async {
+            if (readingFile) return;
+            setDialogState(() => readingFile = true);
+            try {
+              final picked = await FilePicker.pickFiles(
+                type: FileType.custom,
+                allowedExtensions: ['json'],
+                withData: true,
+              );
+              if (picked == null || picked.files.isEmpty) return;
+              final file = picked.files.single;
+              // macOS 的 file_picker 不支持 withData，退回按路径读取。
+              final bytes =
+                  file.bytes ??
+                  (file.path == null
+                      ? null
+                      : await XFile(file.path!).readAsBytes());
+              if (bytes == null) {
+                throw StateError('无法读取所选文件内容');
+              }
+              final text = utf8.decode(bytes);
+              if (!ctx.mounted) return;
+              controller.text = text;
+              setDialogState(() => fileName = file.name);
+            } catch (e) {
+              if (ctx.mounted) {
+                showAppSnackBar(ctx, '读取备份文件失败：$e', isError: true);
+              }
+            } finally {
+              if (ctx.mounted) setDialogState(() => readingFile = false);
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('导入 JSON 备份'),
+            content: SizedBox(
+              width: 460,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: readingFile ? null : pickBackupFile,
+                        icon: readingFile
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.folder_open_rounded, size: 18),
+                        label: const Text('选择备份文件'),
+                      ),
+                      if (fileName != null) ...[
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            fileName!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: controller,
+                    maxLines: 6,
+                    minLines: 4,
+                    decoration: const InputDecoration(
+                      hintText: '在此粘贴导出的 JSON 数据文本...',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '支持 .json 备份文件，也可直接粘贴文本。导入前会显示笔记与标签数量供确认。',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final clean = controller.text.trim();
+                  if (clean.isEmpty) {
+                    showAppSnackBar(ctx, '请先选择备份文件或粘贴 JSON 内容', isError: true);
+                    return;
+                  }
+                  try {
+                    Navigator.pop(ctx, _parseBackup(clean));
+                  } catch (e) {
+                    showAppSnackBar(ctx, '无法解析备份文件：$e', isError: true);
+                  }
+                },
+                child: const Text('预览导入'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    controller.dispose();
+    if (data == null || !context.mounted) return;
+
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('导入 JSON 备份'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FeatherDialogTextField(
-              maxLines: 6,
-              hintText: '在此粘贴导出的 JSON 数据文本...',
-              onChanged: (val) => text = val,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '注意：与现有笔记 ID 相同的记录会被覆盖更新。',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
+        title: const Text('确认导入备份？'),
+        content: Text(
+          '将导入 ${data.notes.length} 条笔记、${data.tags.length} 个标签。\n\n'
+          '与现有笔记 ID 相同的记录会被覆盖更新，且此操作无法撤销。',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
-              final clean = text.trim();
-              if (clean.isEmpty) {
-                showAppSnackBar(context, '请先粘贴 JSON 备份内容', isError: true);
-                return;
-              }
-              Navigator.pop(ctx);
-              _importJsonBackup(context, ref, clean);
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('导入'),
           ),
         ],
       ),
     );
+    if (confirmed == true && context.mounted) {
+      await _importJsonBackup(context, ref, data);
+    }
   }
 
-  Future<void> _importJsonBackup(BuildContext context, WidgetRef ref, String rawText) async {
+  /// 解析备份文本，兼容新版 {notes,tags} 与旧版纯笔记数组格式
+  static _BackupData _parseBackup(String rawText) {
+    final decoded = jsonDecode(rawText);
+    final List<dynamic> noteJson;
+    final List<dynamic> tagJson;
+
+    if (decoded is List) {
+      noteJson = decoded;
+      tagJson = const [];
+    } else if (decoded is Map<String, dynamic>) {
+      noteJson = decoded['notes'] as List<dynamic>? ?? const [];
+      tagJson = decoded['tags'] as List<dynamic>? ?? const [];
+    } else {
+      throw const FormatException('备份格式无法识别');
+    }
+
+    final notes = noteJson
+        .map((e) => Note.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    final tags = tagJson
+        .map((e) {
+          final map = Map<String, dynamic>.from(e as Map);
+          final name = (map['name'] ?? '').toString().trim();
+          if (name.isEmpty) return null;
+          return Tag(
+            id: (map['id'] ?? name).toString(),
+            name: name,
+            color: map['color'] as String?,
+            createdAt:
+                DateTime.tryParse((map['createdAt'] ?? '').toString()) ??
+                DateTime.now(),
+          );
+        })
+        .whereType<Tag>()
+        .toList();
+
+    if (notes.isEmpty && tags.isEmpty) {
+      throw const FormatException('备份中没有可导入的笔记或标签');
+    }
+    return _BackupData(notes: notes, tags: tags);
+  }
+
+  Future<void> _importJsonBackup(
+    BuildContext context,
+    WidgetRef ref,
+    _BackupData data,
+  ) async {
     final messenger = ScaffoldMessenger.of(context);
     final errorColor = Theme.of(context).colorScheme.error;
     try {
-      // JSON 解析放入后台 isolate，避免大文件解析卡顿 UI (Web 不支持 isolate)
-      final json = kIsWeb
-          ? jsonDecode(rawText) as List<dynamic>
-          : await Isolate.run(() => jsonDecode(rawText) as List<dynamic>);
-      final notes = json.map((e) => Note.fromJson(e as Map<String, dynamic>)).toList();
-      await ref.read(noteRepositoryProvider).importNotes(notes);
+      if (data.notes.isNotEmpty) {
+        await ref.read(noteRepositoryProvider).importNotes(data.notes);
+      }
+      if (data.tags.isNotEmpty) {
+        await ref.read(tagRepositoryProvider).importTags(data.tags);
+      }
       messenger.showSnackBar(
         SnackBar(
-          content: Text('成功导入 ${notes.length} 条笔记'),
+          content: Text(
+            '成功导入 ${data.notes.length} 条笔记、${data.tags.length} 个标签',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -451,7 +718,11 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       applicationName: '羽记 · FeatherNote',
       applicationVersion: currentVersion.isEmpty ? null : currentVersion,
-      applicationIcon: const Icon(Icons.flutter_dash, size: 48, color: AppColors.primary),
+      applicationIcon: const Icon(
+        Icons.flutter_dash,
+        size: 48,
+        color: AppColors.primary,
+      ),
       children: const [
         Text('羽记是一款追求极致轻盈、行云流水般书写体验的跨平台离线记事本应用。'),
         SizedBox(height: 12),
@@ -461,11 +732,16 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   /// 手动检查更新，用弹窗/提示条反馈结果
-  Future<void> _checkForUpdateManually(BuildContext context, WidgetRef ref) async {
+  Future<void> _checkForUpdateManually(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final messenger = ScaffoldMessenger.of(context);
     final errorColor = Theme.of(context).colorScheme.error;
     try {
-      final update = await ref.read(updateControllerProvider.notifier).checkManually();
+      final update = await ref
+          .read(updateControllerProvider.notifier)
+          .checkManually();
       if (!context.mounted) return;
       if (update == null) {
         messenger.showSnackBar(
@@ -495,4 +771,12 @@ class SettingsScreen extends ConsumerWidget {
       );
     }
   }
+}
+
+/// 解析后的备份数据
+class _BackupData {
+  final List<Note> notes;
+  final List<Tag> tags;
+
+  const _BackupData({required this.notes, required this.tags});
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/feather_empty_state.dart';
@@ -63,12 +64,19 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
               children: [
                 // 快捷添加待办输入框
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: isDark ? colorScheme.surfaceContainerHighest : colorScheme.surfaceContainer,
+                    color: isDark
+                        ? colorScheme.surfaceContainerHighest
+                        : colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.06),
                     ),
                   ),
                   child: Row(
@@ -115,13 +123,18 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
                       gradient: LinearGradient(
                         colors: isDark
                             ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                            : [const Color(0xFFE0F2FE), const Color(0xFFF0FDF4)],
+                            : [
+                                const Color(0xFFE0F2FE),
+                                const Color(0xFFF0FDF4),
+                              ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFBAE6FD),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : const Color(0xFFBAE6FD),
                         width: 1,
                       ),
                     ),
@@ -136,14 +149,18 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
                                 Icon(
                                   Icons.task_alt_rounded,
                                   size: 18,
-                                  color: isDark ? Colors.lightBlueAccent : const Color(0xFF0284C7),
+                                  color: isDark
+                                      ? Colors.lightBlueAccent
+                                      : const Color(0xFF0284C7),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   '今日待办专注',
                                   style: theme.textTheme.titleSmall?.copyWith(
                                     fontWeight: FontWeight.w600,
-                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
                                   ),
                                 ),
                               ],
@@ -152,7 +169,9 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
                               '$completedCount / $totalCount 项 · ${(progress * 100).toInt()}%',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.lightBlueAccent : const Color(0xFF0284C7),
+                                color: isDark
+                                    ? Colors.lightBlueAccent
+                                    : const Color(0xFF0284C7),
                               ),
                             ),
                           ],
@@ -163,10 +182,14 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
                           child: LinearProgressIndicator(
                             value: progress,
                             minHeight: 6,
-                            backgroundColor: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.8),
+                            backgroundColor: isDark
+                                ? Colors.white.withValues(alpha: 0.1)
+                                : Colors.white.withValues(alpha: 0.8),
                             color: progress >= 1.0
                                 ? Colors.tealAccent.shade400
-                                : (isDark ? Colors.lightBlueAccent : const Color(0xFF0284C7)),
+                                : (isDark
+                                      ? Colors.lightBlueAccent
+                                      : const Color(0xFF0284C7)),
                           ),
                         ),
                       ],
@@ -207,7 +230,8 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverList.builder(
               itemCount: pendingTodos.length,
-              itemBuilder: (context, index) => _buildTodoCard(context, pendingTodos[index], isDark),
+              itemBuilder: (context, index) =>
+                  _buildTodoCard(context, pendingTodos[index], isDark),
             ),
           ),
 
@@ -220,14 +244,19 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
                 borderRadius: BorderRadius.circular(10),
                 onTap: () => setState(() => _showCompleted = !_showCompleted),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 8,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
                           Icon(
-                            _showCompleted ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_right_rounded,
+                            _showCompleted
+                                ? Icons.keyboard_arrow_down_rounded
+                                : Icons.keyboard_arrow_right_rounded,
                             size: 20,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -242,11 +271,36 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
                         ],
                       ),
                       TextButton(
-                        onPressed: () {
+                        onPressed: () async {
                           final count = completedTodos.length;
-                          runWithFeedback(
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('清空已完成待办？'),
+                              content: Text('将删除 $count 条已完成的待办，此操作无法撤销。'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('取消'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: Text(
+                                    '清空',
+                                    style: TextStyle(
+                                      color: Theme.of(ctx).colorScheme.error,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed != true || !context.mounted) return;
+                          await runWithFeedback(
                             context,
-                            () => ref.read(todoControllerProvider).clearAllCompleted(),
+                            () => ref
+                                .read(todoControllerProvider)
+                                .clearAllCompleted(),
                             successMessage: '已清空 $count 条已完成待办',
                             failureTitle: '清空失败',
                           );
@@ -276,22 +330,48 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverList.builder(
               itemCount: completedTodos.length,
-              itemBuilder: (context, index) => _buildTodoCard(context, completedTodos[index], isDark),
+              itemBuilder: (context, index) =>
+                  _buildTodoCard(context, completedTodos[index], isDark),
             ),
           ),
 
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 100),
-        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
     );
+  }
+
+  Future<bool> _confirmDeleteTodo(BuildContext context, TodoItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除这条待办？'),
+        content: Text('「${item.text}」将从所属笔记中移除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              '删除',
+              style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
   }
 
   /// 构建单条待办卡片
   Widget _buildTodoCard(BuildContext context, TodoItem item, bool isDark) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final colorPreset = AppColors.getNoteColor(item.noteColorId, isDark: isDark);
+    final colorPreset = AppColors.getNoteColor(
+      item.noteColorId,
+      isDark: isDark,
+    );
 
     return Dismissible(
       key: Key(item.id),
@@ -305,6 +385,7 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
         ),
         child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
       ),
+      confirmDismiss: (_) => _confirmDeleteTodo(context, item),
       onDismissed: (_) {
         runWithFeedback(
           context,
@@ -318,7 +399,9 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
           color: isDark ? colorScheme.surfaceContainerHigh : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.05),
           ),
           boxShadow: [
             BoxShadow(
@@ -344,24 +427,38 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
               child: Row(
                 children: [
                   // 复选框图标
-                  IconButton(
-                    icon: Icon(
-                      item.isCompleted
-                          ? Icons.check_circle_rounded
-                          : Icons.radio_button_unchecked_rounded,
-                      color: item.isCompleted
-                          ? Colors.teal
-                          : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                      size: 22,
+                  Semantics(
+                    button: true,
+                    label: item.isCompleted
+                        ? '标记为未完成：${item.text}'
+                        : '标记为已完成：${item.text}',
+                    child: IconButton(
+                      constraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        item.isCompleted
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: item.isCompleted
+                            ? Colors.teal
+                            : colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.6,
+                              ),
+                        size: 22,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {
+                        runWithFeedback(
+                          context,
+                          () =>
+                              ref.read(todoControllerProvider).toggleTodo(item),
+                          failureTitle: '更新待办失败',
+                        );
+                      },
                     ),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () {
-                      runWithFeedback(
-                        context,
-                        () => ref.read(todoControllerProvider).toggleTodo(item),
-                        failureTitle: '更新待办失败',
-                      );
-                    },
                   ),
                   const SizedBox(width: 6),
 
@@ -373,11 +470,17 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
                         Text(
                           item.text,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            decoration: item.isCompleted ? TextDecoration.lineThrough : null,
+                            decoration: item.isCompleted
+                                ? TextDecoration.lineThrough
+                                : null,
                             color: item.isCompleted
-                                ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
+                                ? theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.4,
+                                  )
                                 : theme.colorScheme.onSurface,
-                            fontWeight: item.isCompleted ? FontWeight.w400 : FontWeight.w500,
+                            fontWeight: item.isCompleted
+                                ? FontWeight.w400
+                                : FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -410,15 +513,24 @@ class _TodoListViewState extends ConsumerState<TodoListView> {
 
                   // 删除小按钮
                   IconButton(
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    padding: EdgeInsets.zero,
                     icon: Icon(
                       Icons.close_rounded,
-                      size: 16,
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.4,
+                      ),
                     ),
                     visualDensity: VisualDensity.compact,
                     tooltip: '删除待办',
-                    onPressed: () {
-                      runWithFeedback(
+                    onPressed: () async {
+                      final confirmed = await _confirmDeleteTodo(context, item);
+                      if (!confirmed || !context.mounted) return;
+                      await runWithFeedback(
                         context,
                         () => ref.read(todoControllerProvider).deleteTodo(item),
                         failureTitle: '删除待办失败',

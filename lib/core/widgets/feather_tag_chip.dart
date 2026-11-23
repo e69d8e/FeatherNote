@@ -27,7 +27,9 @@ class FeatherTagChip extends StatelessWidget {
 
     final backgroundColor = isSelected
         ? baseColor.withValues(alpha: isDark ? 0.35 : 0.15)
-        : (isDark ? colorScheme.surfaceContainerHighest : colorScheme.surfaceContainer);
+        : (isDark
+              ? colorScheme.surfaceContainerHighest
+              : colorScheme.surfaceContainer);
 
     final textColor = isSelected
         ? (isDark ? Colors.white : baseColor)
@@ -54,7 +56,7 @@ class FeatherTagChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '# $label',
+                '#$label',
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   color: textColor,
@@ -63,12 +65,21 @@ class FeatherTagChip extends StatelessWidget {
               ),
               if (onDeleted != null) ...[
                 const SizedBox(width: 4),
-                GestureDetector(
-                  onTap: onDeleted,
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 14,
-                    color: textColor.withValues(alpha: 0.7),
+                Semantics(
+                  button: true,
+                  label: '移除标签 $label',
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: InkResponse(
+                      onTap: onDeleted,
+                      radius: 12,
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 14,
+                        color: textColor.withValues(alpha: 0.7),
+                      ),
+                    ),
                   ),
                 ),
               ],

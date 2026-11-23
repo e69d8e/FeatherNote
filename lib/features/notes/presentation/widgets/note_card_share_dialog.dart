@@ -1,9 +1,11 @@
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:share_plus/share_plus.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../../../core/utils/text_utils.dart';
@@ -43,7 +45,9 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
     try {
       // 保证下一帧渲染完成后截取
       await Future.delayed(const Duration(milliseconds: 60));
-      final boundary = _cardGlobalKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary =
+          _cardGlobalKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
         throw Exception('无法找到卡片渲染对象');
       }
@@ -61,7 +65,10 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
       }
 
       final pngBytes = byteData.buffer.asUint8List();
-      final title = widget.note.displayTitle.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final title = widget.note.displayTitle.replaceAll(
+        RegExp(r'[\\/:*?"<>|]'),
+        '_',
+      );
       final fileName = 'FeatherNote_$title.png';
 
       final xFile = XFile.fromData(
@@ -110,7 +117,10 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
                 decoration: BoxDecoration(
                   color: colorPreset.lightBackground,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: colorPreset.lightBorder, width: 1.5),
+                  border: Border.all(
+                    color: colorPreset.lightBorder,
+                    width: 1.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.15),
@@ -171,7 +181,7 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF1E293B),
-                        fontSize: 19,
+                        fontSize: 18,
                         height: 1.3,
                       ),
                     ),
@@ -184,17 +194,22 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
                         runSpacing: 4,
                         children: widget.note.tags.map((tag) {
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: colorPreset.accentColor.withValues(alpha: 0.12),
+                              color: colorPreset.accentColor.withValues(
+                                alpha: 0.12,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               '#$tag',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                fontSize: 10.5,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.w500,
-                                color: colorPreset.accentColor,
+                                color: colorPreset.tagTextColor(false),
                               ),
                             ),
                           );
@@ -206,15 +221,21 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
 
                     // 正文 (使用 MarkdownBody 完整渲染标题、待办清单、粗斜体、代码等)
                     MarkdownBody(
-                      data: widget.note.content.isNotEmpty ? widget.note.content : '*(暂无正文)*',
+                      data: widget.note.content.isNotEmpty
+                          ? widget.note.content
+                          : '*(暂无正文)*',
                       selectable: false,
                       checkboxBuilder: (bool checked) {
                         return Padding(
                           padding: const EdgeInsets.only(right: 6, top: 2),
                           child: Icon(
-                            checked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                            checked
+                                ? Icons.check_box_rounded
+                                : Icons.check_box_outline_blank_rounded,
                             size: 18,
-                            color: checked ? colorPreset.accentColor : const Color(0xFF94A3B8),
+                            color: checked
+                                ? colorPreset.accentColor
+                                : const Color(0xFF94A3B8),
                           ),
                         );
                       },
@@ -251,7 +272,9 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
                         blockquoteDecoration: BoxDecoration(
                           border: Border(
                             left: BorderSide(
-                              color: colorPreset.accentColor.withValues(alpha: 0.6),
+                              color: colorPreset.accentColor.withValues(
+                                alpha: 0.6,
+                              ),
                               width: 3,
                             ),
                           ),
@@ -264,7 +287,10 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
                         codeblockDecoration: BoxDecoration(
                           color: const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
+                          border: Border.all(
+                            color: const Color(0xFFE2E8F0),
+                            width: 0.8,
+                          ),
                         ),
                       ),
                     ),
@@ -280,8 +306,8 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
                         Text(
                           '共 $wordCount 字 · 行云流水，轻盈如羽',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF94A3B8),
-                            fontSize: 10.5,
+                            color: const Color(0xFF64748B),
+                            fontSize: 12,
                           ),
                         ),
                         Icon(
@@ -320,18 +346,31 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: AppColors.noteColors.map((c) {
                       final isSel = c.id == _selectedColorId;
-                      return GestureDetector(
-                        onTap: () => setState(() => _selectedColorId = c.id),
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 5),
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            color: c.lightBackground,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSel ? c.accentColor : c.lightBorder,
-                              width: isSel ? 2.2 : 1,
+                      return Semantics(
+                        button: true,
+                        selected: isSel,
+                        label: c.name,
+                        child: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: GestureDetector(
+                            onTap: () =>
+                                setState(() => _selectedColorId = c.id),
+                            child: Center(
+                              child: Container(
+                                width: 26,
+                                height: 26,
+                                decoration: BoxDecoration(
+                                  color: c.lightBackground,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isSel
+                                        ? c.accentColor
+                                        : c.lightBorder,
+                                    width: isSel ? 2.2 : 1,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -348,7 +387,8 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () {
-                            final shareText = '${widget.note.displayTitle}\n\n${widget.note.content}';
+                            final shareText =
+                                '${widget.note.displayTitle}\n\n${widget.note.content}';
                             Clipboard.setData(ClipboardData(text: shareText));
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -377,7 +417,10 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
                               ? const SizedBox(
                                   width: 14,
                                   height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
                               : const Icon(Icons.image_outlined, size: 16),
                           label: Text(_isExporting ? '生成中...' : '分享图片'),

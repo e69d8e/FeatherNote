@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/utils/app_feedback.dart';
+import '../../../../core/widgets/feather_content_width.dart';
 import '../../../../core/widgets/feather_dialog_text_field.dart';
 import '../../../../core/widgets/feather_empty_state.dart';
 import '../../../../core/widgets/feather_search_bar.dart';
@@ -18,7 +19,7 @@ import '../../../todos/presentation/controllers/todo_controller.dart';
 import '../../../todos/presentation/widgets/todo_list_view.dart';
 import '../../domain/models/note.dart';
 import '../controllers/note_list_controller.dart';
-import '../widgets/note_card.dart';
+import '../widgets/note_grid.dart';
 
 /// 笔记主列表与待办专区双 Tab 页面
 class NoteListScreen extends ConsumerStatefulWidget {
@@ -28,7 +29,8 @@ class NoteListScreen extends ConsumerStatefulWidget {
   ConsumerState<NoteListScreen> createState() => _NoteListScreenState();
 }
 
-class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTickerProviderStateMixin {
+class _NoteListScreenState extends ConsumerState<NoteListScreen>
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   int _currentTabIndex = 0;
 
@@ -37,7 +39,8 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      if (_tabController.indexIsChanging || _tabController.index != _currentTabIndex) {
+      if (_tabController.indexIsChanging ||
+          _tabController.index != _currentTabIndex) {
         setState(() {
           _currentTabIndex = _tabController.index;
         });
@@ -47,7 +50,9 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final autoCheckEnabled = ref.read(settingsProvider).autoCheckUpdate;
-      ref.read(updateControllerProvider.notifier).checkOnStartup(enabled: autoCheckEnabled);
+      ref
+          .read(updateControllerProvider.notifier)
+          .checkOnStartup(enabled: autoCheckEnabled);
     });
   }
 
@@ -91,10 +96,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
             onPressed: () => Navigator.pop(ctx),
             child: const Text('取消'),
           ),
-          FilledButton(
-            onPressed: () => submit(ctx),
-            child: const Text('添加'),
-          ),
+          FilledButton(onPressed: () => submit(ctx), child: const Text('添加')),
         ],
       ),
     );
@@ -127,168 +129,210 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
     return Scaffold(
       drawer: _buildDrawer(context, ref),
       body: SafeArea(
-        child: Column(
-          children: [
-            // 顶部搜索与布局切换栏
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Builder(
-                        builder: (ctx) => IconButton(
-                          icon: const Icon(Icons.menu_rounded),
-                          tooltip: '打开侧边栏',
-                          onPressed: () => Scaffold.of(ctx).openDrawer(),
+        child: FeatherContentWidth(
+          maxWidth: 1200,
+          child: Column(
+            children: [
+              // 顶部搜索与布局切换栏
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Builder(
+                          builder: (ctx) => IconButton(
+                            icon: const Icon(Icons.menu_rounded),
+                            tooltip: '打开侧边栏',
+                            onPressed: () => Scaffold.of(ctx).openDrawer(),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FeatherSearchBar(
-                          readOnly: true,
-                          onTap: () => context.push('/search'),
-                        ),
-                      ),
-                      if (_currentTabIndex == 0) ...[
                         const SizedBox(width: 8),
-                        // 切换视图布局按钮 (瀑布流 / 网格 / 列表)
-                        IconButton(
-                          icon: Icon(_getViewModeIcon(viewMode)),
-                          tooltip: '切换布局',
-                          onPressed: () {
-                            final nextMode = switch (viewMode) {
-                              NoteViewMode.staggered => NoteViewMode.grid,
-                              NoteViewMode.grid => NoteViewMode.list,
-                              NoteViewMode.list => NoteViewMode.staggered,
-                            };
-                            ref.read(settingsProvider.notifier).updateViewMode(nextMode);
-                          },
+                        Expanded(
+                          child: FeatherSearchBar(
+                            readOnly: true,
+                            onTap: () => context.push('/search'),
+                          ),
                         ),
+                        if (_currentTabIndex == 0) ...[
+                          const SizedBox(width: 8),
+                          // 切换视图布局按钮 (瀑布流 / 网格 / 列表)
+                          IconButton(
+                            icon: Icon(_getViewModeIcon(viewMode)),
+                            tooltip: '切换布局',
+                            onPressed: () {
+                              final nextMode = switch (viewMode) {
+                                NoteViewMode.staggered => NoteViewMode.grid,
+                                NoteViewMode.grid => NoteViewMode.list,
+                                NoteViewMode.list => NoteViewMode.staggered,
+                              };
+                              ref
+                                  .read(settingsProvider.notifier)
+                                  .updateViewMode(nextMode);
+                            },
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // 顶部 Tab 切换胶囊 [ 📝 笔记 | ✅ 待办 ]
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: isDark ? colorScheme.surfaceContainerHighest : colorScheme.surfaceContainer,
-                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: TabBar(
-                      controller: _tabController,
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      indicator: BoxDecoration(
-                        color: isDark ? colorScheme.surfaceContainerHigh : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.06),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
+
+                    const SizedBox(height: 10),
+
+                    // 顶部 Tab 切换胶囊 [ 📝 笔记 | ✅ 待办 ]
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? colorScheme.surfaceContainerHighest
+                            : colorScheme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: TabBar(
+                        controller: _tabController,
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        indicator: BoxDecoration(
+                          color: isDark
+                              ? colorScheme.surfaceContainerHigh
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        dividerHeight: 0,
+                        labelColor: colorScheme.primary,
+                        unselectedLabelColor: colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.7),
+                        labelStyle: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
+                        unselectedLabelStyle: theme.textTheme.labelMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 13.5,
+                            ),
+                        tabs: [
+                          Tab(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.note_alt_outlined, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '笔记 ${notesCount > 0 ? "($notesCount)" : ""}',
+                                ),
+                              ],
+                            ),
+                          ),
+                          Tab(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.checklist_rtl_rounded,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '待办 ${todosCount > 0 ? "($todosCount)" : ""}',
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      dividerHeight: 0,
-                      labelColor: colorScheme.primary,
-                      unselectedLabelColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                      labelStyle: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
-                      ),
-                      unselectedLabelStyle: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13.5,
-                      ),
-                      tabs: [
-                        Tab(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.note_alt_outlined, size: 16),
-                              const SizedBox(width: 6),
-                              Text('笔记 ${notesCount > 0 ? "($notesCount)" : ""}'),
-                            ],
-                          ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Tab 视图主体
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // Tab 0: 笔记列表
+                    Column(
+                      children: [
+                        // 标签横滑过滤栏
+                        _buildTagFilterBar(
+                          context,
+                          ref,
+                          tagsAsync,
+                          selectedTag,
                         ),
-                        Tab(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.checklist_rtl_rounded, size: 16),
-                              const SizedBox(width: 6),
-                              Text('待办 ${todosCount > 0 ? "($todosCount)" : ""}'),
-                            ],
+                        const SizedBox(height: 6),
+                        // 笔记卡片列表
+                        Expanded(
+                          child: notesAsync.when(
+                            data: (notes) {
+                              if (notes.isEmpty) {
+                                return FeatherEmptyState(
+                                  icon: Icons.note_alt_outlined,
+                                  title: selectedTag != null
+                                      ? '标签 #$selectedTag 下暂无笔记'
+                                      : '轻触右下角羽毛笔，开始记录第一篇笔记',
+                                  subtitle: selectedTag != null
+                                      ? '可点击“全部”查看全部笔记'
+                                      : '随想、清单、灵感，轻盈如羽',
+                                  action: selectedTag != null
+                                      ? OutlinedButton.icon(
+                                          onPressed: () => ref
+                                              .read(tagsControllerProvider)
+                                              .selectTag(null),
+                                          icon: const Icon(
+                                            Icons.clear_all_rounded,
+                                            size: 18,
+                                          ),
+                                          label: const Text('清除标签筛选'),
+                                        )
+                                      : null,
+                                );
+                              }
+
+                              return RefreshIndicator(
+                                onRefresh: () async {
+                                  ref.invalidate(activeNotesStreamProvider);
+                                },
+                                child: _buildNotesLayout(
+                                  context,
+                                  ref,
+                                  notes,
+                                  viewMode,
+                                ),
+                              );
+                            },
+                            // 下拉刷新时保留现有列表展示，避免整页闪现加载圈
+                            skipLoadingOnRefresh: true,
+                            loading: () => const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                              ),
+                            ),
+                            error: (err, stack) => Center(
+                              child: Text(
+                                '加载笔记失败: $err',
+                                style: TextStyle(color: colorScheme.error),
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+
+                    // Tab 1: 待办清单专区
+                    const TodoListView(),
+                  ],
+                ),
               ),
-            ),
-
-            // Tab 视图主体
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  // Tab 0: 笔记列表
-                  Column(
-                    children: [
-                      // 标签横滑过滤栏
-                      _buildTagFilterBar(context, ref, tagsAsync, selectedTag),
-                      const SizedBox(height: 6),
-                      // 笔记卡片列表
-                      Expanded(
-                        child: notesAsync.when(
-                          data: (notes) {
-                            if (notes.isEmpty) {
-                              return FeatherEmptyState(
-                                icon: Icons.note_alt_outlined,
-                                title: selectedTag != null
-                                    ? '标签 #$selectedTag 下暂无笔记'
-                                    : '轻触右下角羽毛笔，开始记录第一篇笔记',
-                                subtitle: selectedTag != null ? '可点击“全部”查看全部笔记' : '随想、清单、灵感，轻盈如羽',
-                                action: selectedTag != null
-                                    ? OutlinedButton.icon(
-                                        onPressed: () => ref.read(tagsControllerProvider).selectTag(null),
-                                        icon: const Icon(Icons.clear_all_rounded, size: 18),
-                                        label: const Text('清除标签筛选'),
-                                      )
-                                    : null,
-                              );
-                            }
-
-                            return RefreshIndicator(
-                              onRefresh: () async {
-                                ref.invalidate(activeNotesStreamProvider);
-                              },
-                              child: _buildNotesLayout(context, ref, notes, viewMode),
-                            );
-                          },
-                          // 下拉刷新时保留现有列表展示，避免整页闪现加载圈
-                          skipLoadingOnRefresh: true,
-                          loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
-                          error: (err, stack) => Center(
-                            child: Text('加载笔记失败: $err', style: TextStyle(color: colorScheme.error)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // Tab 1: 待办清单专区
-                  const TodoListView(),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       floatingActionButton: _currentTabIndex == 0
@@ -298,7 +342,10 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
               icon: const Icon(Icons.create_rounded, size: 20),
               label: const Text(
                 '记一笔',
-                style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
               ),
             )
           : FloatingActionButton.extended(
@@ -307,7 +354,10 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
               icon: const Icon(Icons.add_task_rounded, size: 20),
               label: const Text(
                 '加待办',
-                style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
     );
@@ -351,7 +401,9 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
                 label: tag.name,
                 isSelected: isSelected,
                 onTap: () {
-                  ref.read(tagsControllerProvider).selectTag(isSelected ? null : tag.name);
+                  ref
+                      .read(tagsControllerProvider)
+                      .selectTag(isSelected ? null : tag.name);
                 },
               ),
             );
@@ -388,8 +440,8 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
             Text(
               '新建标签',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -404,61 +456,17 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
     List<Note> notes,
     NoteViewMode viewMode,
   ) {
-    const padding = EdgeInsets.fromLTRB(16, 4, 16, 80);
+    final layout = switch (viewMode) {
+      NoteViewMode.staggered => NoteGridLayout.staggered,
+      NoteViewMode.grid => NoteGridLayout.grid,
+      NoteViewMode.list => NoteGridLayout.list,
+    };
 
-    switch (viewMode) {
-      case NoteViewMode.staggered:
-        return MasonryGridView.count(
-          padding: padding,
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          itemCount: notes.length,
-          itemBuilder: (context, index) {
-            final note = notes[index];
-            return NoteCard(
-              key: ValueKey(note.id),
-              note: note,
-              onTap: () => context.push('/edit/${note.id}'),
-            );
-          },
-        );
-
-      case NoteViewMode.grid:
-        return GridView.builder(
-          padding: padding,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.82,
-          ),
-          itemCount: notes.length,
-          itemBuilder: (context, index) {
-            final note = notes[index];
-            return NoteCard(
-              key: ValueKey(note.id),
-              note: note,
-              onTap: () => context.push('/edit/${note.id}'),
-            );
-          },
-        );
-
-      case NoteViewMode.list:
-        return ListView.separated(
-          padding: padding,
-          itemCount: notes.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final note = notes[index];
-            return NoteCard(
-              key: ValueKey(note.id),
-              note: note,
-              onTap: () => context.push('/edit/${note.id}'),
-            );
-          },
-        );
-    }
+    return NoteGrid(
+      notes: notes,
+      layout: layout,
+      onTap: (note) => context.push('/edit/${note.id}'),
+    );
   }
 
   IconData _getViewModeIcon(NoteViewMode mode) {
@@ -508,6 +516,9 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
   Widget _buildDrawer(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final currentVersion = ref.watch(
+      updateControllerProvider.select((s) => s.currentVersion),
+    );
 
     return Drawer(
       child: SafeArea(
@@ -570,7 +581,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
             ListTile(
               leading: const Icon(Icons.note_alt_outlined),
               title: const Text('全部笔记'),
-              selected: true,
+              selected: _currentTabIndex == 0,
               onTap: () {
                 Navigator.pop(context);
                 ref.read(tagsControllerProvider).selectTag(null);
@@ -580,6 +591,7 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
             ListTile(
               leading: const Icon(Icons.checklist_rtl_rounded),
               title: const Text('待办清单'),
+              selected: _currentTabIndex == 1,
               onTap: () {
                 Navigator.pop(context);
                 _tabController.animateTo(1);
@@ -615,10 +627,10 @@ class _NoteListScreenState extends ConsumerState<NoteListScreen> with SingleTick
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                '羽记 FeatherNote v1.0.0',
+                '羽记 FeatherNote${currentVersion.isEmpty ? '' : ' v$currentVersion'}',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                  fontSize: 11,
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  fontSize: 12,
                 ),
               ),
             ),

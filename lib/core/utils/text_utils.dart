@@ -3,16 +3,39 @@ class TextUtils {
   TextUtils._();
 
   // 预编译高频正则表达式
-  static final RegExp _markdownHeadingsRegex = RegExp(r'#+\s*');
-  static final RegExp _markdownFormattingRegex = RegExp(r'[*_~`>\[\]\(\)]');
-  static final RegExp _markdownCheckboxesRegex = RegExp(r'[-*+]\s+\[[ xX]\]');
-  static final RegExp _newlinesRegex = RegExp(r'\n+');
+  static final RegExp _markdownCodeFenceRegex = RegExp(r'```[^\n]*');
+  static final RegExp _markdownImageRegex = RegExp(r'!\[([^\]]*)\]\([^)]*\)');
+  static final RegExp _markdownLinkRegex = RegExp(r'\[([^\]]+)\]\([^)]*\)');
+  static final RegExp _markdownHeadingsRegex = RegExp(
+    r'^\s{0,3}#{1,6}\s+',
+    multiLine: true,
+  );
+  static final RegExp _markdownCheckboxesRegex = RegExp(
+    r'^\s*[-*+]\s+\[[ xX]\]\s*',
+    multiLine: true,
+  );
+  static final RegExp _markdownListMarkersRegex = RegExp(
+    r'^\s*(?:[-*+]|\d+[.)])\s+',
+    multiLine: true,
+  );
+  static final RegExp _markdownBlockquotesRegex = RegExp(
+    r'^\s*>\s?',
+    multiLine: true,
+  );
+  static final RegExp _markdownFormattingRegex = RegExp(r'[*_~`\[\]]');
+  static final RegExp _whitespaceRegex = RegExp(r'\s+');
 
   /// 待办项单行匹配正则 (支持 -、*、+ 以及不同层级缩进与尾部文本)
-  static final RegExp todoItemRegex = RegExp(r'^(\s*[-*+]\s+\[)([ xX])(\]\s*(.*))$', multiLine: true);
+  static final RegExp todoItemRegex = RegExp(
+    r'^(\s*[-*+]\s+\[)([ xX])(\]\s*(.*))$',
+    multiLine: true,
+  );
 
   /// 已完成待办匹配正则 (用于一键清理已完成待办)
-  static final RegExp completedTodoLineRegex = RegExp(r'^\s*[-*+]\s+\[[xX]\]\s*.*$', multiLine: true);
+  static final RegExp completedTodoLineRegex = RegExp(
+    r'^\s*[-*+]\s+\[[xX]\]\s*.*$',
+    multiLine: true,
+  );
 
   /// 统计中文字数与英文单词数 (高性能单趟线性扫描，零大对象分配)
   static int countWords(String text) {
@@ -87,7 +110,8 @@ class TextUtils {
           code == 58 || // :
           code == 59 || // ;
           code == 33 || // !
-          code == 63) { // ?
+          code == 63) {
+        // ?
         inNonChineseWord = false;
         continue;
       }
@@ -120,10 +144,15 @@ class TextUtils {
         : content;
 
     final plain = scanWindow
+        .replaceAll(_markdownCodeFenceRegex, '')
+        .replaceAllMapped(_markdownImageRegex, (m) => m.group(1) ?? '')
+        .replaceAllMapped(_markdownLinkRegex, (m) => m.group(1) ?? '')
         .replaceAll(_markdownHeadingsRegex, '')
-        .replaceAll(_markdownFormattingRegex, '')
         .replaceAll(_markdownCheckboxesRegex, '')
-        .replaceAll(_newlinesRegex, ' ')
+        .replaceAll(_markdownListMarkersRegex, '')
+        .replaceAll(_markdownBlockquotesRegex, '')
+        .replaceAll(_markdownFormattingRegex, '')
+        .replaceAll(_whitespaceRegex, ' ')
         .trim();
 
     if (plain.length <= maxLength) {

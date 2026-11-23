@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/feather_empty_state.dart';
 import '../../../notes/domain/models/note.dart';
+import '../../../notes/presentation/widgets/note_grid.dart';
 import '../controllers/archive_controller.dart';
-import '../../../notes/presentation/widgets/note_card.dart';
 
 /// 归档箱页面
 class ArchiveScreen extends ConsumerWidget {
@@ -31,23 +31,18 @@ class ArchiveScreen extends ConsumerWidget {
             );
           }
 
-          return MasonryGridView.count(
+          return NoteGrid(
+            notes: notes,
             padding: const EdgeInsets.all(16),
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            itemCount: notes.length,
-            itemBuilder: (context, index) {
-              final note = notes[index];
-              return NoteCard(
-                key: ValueKey(note.id),
-                note: note,
-                onTap: () => _showArchiveOptions(context, ref, note, archiveCtrl),
-              );
-            },
+            onTap: (note) => context.push('/edit/${note.id}'),
+            onMoreTap: (note) =>
+                _showArchiveOptions(context, ref, note, archiveCtrl),
+            onLongPress: (note) =>
+                _showArchiveOptions(context, ref, note, archiveCtrl),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+        loading: () =>
+            const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
         error: (err, _) => Center(child: Text('加载归档失败: $err')),
       ),
     );
@@ -89,8 +84,14 @@ class ArchiveScreen extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-              title: const Text('移入废纸篓', style: TextStyle(color: Colors.redAccent)),
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.redAccent,
+              ),
+              title: const Text(
+                '移入废纸篓',
+                style: TextStyle(color: Colors.redAccent),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 runWithFeedback(

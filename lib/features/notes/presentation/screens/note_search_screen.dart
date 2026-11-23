@@ -1,13 +1,16 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/utils/debouncer.dart';
+import '../../../../core/widgets/feather_content_width.dart';
 import '../../../../core/widgets/feather_empty_state.dart';
 import '../../../../core/widgets/feather_search_bar.dart';
 import '../../domain/models/note.dart';
 import '../controllers/note_search_controller.dart';
-import '../widgets/note_card.dart';
+import '../widgets/note_grid.dart';
 
 /// 笔记即时搜索页面
 class NoteSearchScreen extends ConsumerStatefulWidget {
@@ -19,7 +22,9 @@ class NoteSearchScreen extends ConsumerStatefulWidget {
 
 class _NoteSearchScreenState extends ConsumerState<NoteSearchScreen> {
   late final TextEditingController _searchController;
-  final Debouncer _searchDebouncer = Debouncer(delay: const Duration(milliseconds: 250));
+  final Debouncer _searchDebouncer = Debouncer(
+    delay: const Duration(milliseconds: 250),
+  );
 
   @override
   void initState() {
@@ -44,21 +49,25 @@ class _NoteSearchScreenState extends ConsumerState<NoteSearchScreen> {
         titleSpacing: 0,
         title: Padding(
           padding: const EdgeInsets.only(right: 16),
-          child: FeatherSearchBar(
-            controller: _searchController,
-            autofocus: true,
-            hintText: '搜索笔记标题、内容或标签...',
-            onChanged: (val) {
-              _searchDebouncer.run(() {
-                if (mounted) {
-                  ref.read(searchQueryProvider.notifier).state = val;
-                }
-              });
-            },
-            onClear: () {
-              _searchDebouncer.cancel();
-              ref.read(searchQueryProvider.notifier).state = '';
-            },
+          child: FeatherContentWidth(
+            maxWidth: 760,
+            alignment: Alignment.center,
+            child: FeatherSearchBar(
+              controller: _searchController,
+              autofocus: true,
+              hintText: '搜索笔记标题、内容或标签...',
+              onChanged: (val) {
+                _searchDebouncer.run(() {
+                  if (mounted) {
+                    ref.read(searchQueryProvider.notifier).state = val;
+                  }
+                });
+              },
+              onClear: () {
+                _searchDebouncer.cancel();
+                ref.read(searchQueryProvider.notifier).state = '';
+              },
+            ),
           ),
         ),
       ),
@@ -74,14 +83,17 @@ class _NoteSearchScreenState extends ConsumerState<NoteSearchScreen> {
 
   /// 结果展示：切换关键词加载新结果期间保留上一批结果，
   /// 避免每次输入都闪现空白加载圈 (stale-while-revalidate)
-  Widget _buildResults(BuildContext context, AsyncValue<List<Note>> resultsAsync) {
+  Widget _buildResults(
+    BuildContext context,
+    AsyncValue<List<Note>> resultsAsync,
+  ) {
     final notes = resultsAsync.valueOrNull;
 
     if (notes == null) {
       if (resultsAsync.hasError) {
         return Center(child: Text('搜索出错: ${resultsAsync.error}'));
       }
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
+      return const _SearchSkeleton();
     }
 
     if (notes.isEmpty) {
@@ -98,20 +110,112 @@ class _NoteSearchScreenState extends ConsumerState<NoteSearchScreen> {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
     }
 
-    return MasonryGridView.count(
-      padding: const EdgeInsets.all(16),
-      crossAxisCount: 2,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      itemCount: notes.length,
-      itemBuilder: (context, index) {
-        final note = notes[index];
-        return NoteCard(
-          key: ValueKey(note.id),
-          note: note,
-          onTap: () => context.push('/edit/${note.id}'),
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Text(
+            '找到 ${notes.length} 条笔记',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontSize: 12,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(
+          child: NoteGrid(
+            notes: notes,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            onTap: (note) => context.push('/edit/${note.id}'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 首次搜索时的轻量骨架屏，避免空白等待。
+class _SearchSkeleton extends StatelessWidget {
+  const _SearchSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final contentWidth = math.min(constraints.maxWidth, 1200.0);
+        final columns = NoteGrid.columnsForWidth(contentWidth);
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.65,
+              ),
+              itemCount: columns * 2,
+              itemBuilder: (context, index) => Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.55,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SkeletonBar(width: 150, height: 16, color: theme),
+                    const SizedBox(height: 14),
+                    _SkeletonBar(
+                      width: double.infinity,
+                      height: 10,
+                      color: theme,
+                    ),
+                    const SizedBox(height: 8),
+                    _SkeletonBar(
+                      width: double.infinity,
+                      height: 10,
+                      color: theme,
+                    ),
+                    const SizedBox(height: 8),
+                    _SkeletonBar(width: 120, height: 10, color: theme),
+                  ],
+                ),
+              ),
+            ),
+          ),
         );
       },
+    );
+  }
+}
+
+class _SkeletonBar extends StatelessWidget {
+  const _SkeletonBar({
+    required this.width,
+    required this.height,
+    required this.color,
+  });
+
+  final double width;
+  final double height;
+  final ThemeData color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: color.colorScheme.onSurface.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(4),
+      ),
     );
   }
 }

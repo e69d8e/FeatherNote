@@ -30,10 +30,14 @@ class FeatherSearchBar extends StatelessWidget {
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: isDark ? colorScheme.surfaceContainerHigh : colorScheme.surfaceContainer,
+        color: isDark
+            ? colorScheme.surfaceContainerHigh
+            : colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.04),
           width: 1,
         ),
       ),
@@ -57,27 +61,34 @@ class FeatherSearchBar extends StatelessWidget {
                       ? Text(
                           hintText,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         )
-                      : TextField(
-                          controller: controller,
-                          onChanged: onChanged,
-                          autofocus: autofocus,
-                          style: theme.textTheme.bodyMedium,
-                          decoration: InputDecoration(
-                            hintText: hintText,
-                            hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      : Semantics(
+                          label: '搜索笔记',
+                          child: TextField(
+                            controller: controller,
+                            onChanged: onChanged,
+                            autofocus: autofocus,
+                            style: theme.textTheme.bodyMedium,
+                            decoration: InputDecoration(
+                              hintText: hintText,
+                              hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                              isDense: true,
+                              filled: false,
                             ),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                            isDense: true,
-                            filled: false,
                           ),
                         ),
                 ),
@@ -87,15 +98,24 @@ class FeatherSearchBar extends StatelessWidget {
                     valueListenable: controller!,
                     builder: (context, value, _) {
                       if (value.text.isEmpty) return const SizedBox.shrink();
-                      return GestureDetector(
-                        onTap: () {
+                      return IconButton(
+                        onPressed: () {
                           controller?.clear();
                           onClear?.call();
                         },
-                        child: Icon(
+                        tooltip: '清空搜索',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 40,
+                          minHeight: 40,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
                           Icons.cancel_rounded,
                           size: 18,
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       );
                     },

@@ -113,4 +113,11 @@ class FeatherNoteColor {
 
   Color background(bool isDark) => isDark ? darkBackground : lightBackground;
   Color border(bool isDark) => isDark ? darkBorder : lightBorder;
+
+  /// 标签小字专用颜色：在 accent 12% 底色上保持至少 4.5:1 对比度。
+  Color tagTextColor(bool isDark) {
+    return isDark
+        ? Color.lerp(accentColor, Colors.white, 0.45)!
+        : Color.lerp(accentColor, Colors.black, 0.35)!;
+  }
 }

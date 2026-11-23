@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/widgets/feather_empty_state.dart';
 import '../../../notes/domain/models/note.dart';
+import '../../../notes/presentation/widgets/note_grid.dart';
 import '../controllers/trash_controller.dart';
-import '../../../notes/presentation/widgets/note_card.dart';
 
 /// 废纸篓页面 (支持恢复与永久删除)
 class TrashScreen extends ConsumerWidget {
@@ -24,8 +24,15 @@ class TrashScreen extends ConsumerWidget {
             data: (notes) => notes.isNotEmpty
                 ? TextButton.icon(
                     onPressed: () => _confirmEmptyTrash(context, trashCtrl),
-                    icon: const Icon(Icons.delete_forever_rounded, size: 18, color: Colors.redAccent),
-                    label: const Text('清空废纸篓', style: TextStyle(color: Colors.redAccent)),
+                    icon: const Icon(
+                      Icons.delete_forever_rounded,
+                      size: 18,
+                      color: Colors.redAccent,
+                    ),
+                    label: const Text(
+                      '清空废纸篓',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
                   )
                 : const SizedBox.shrink(),
             orElse: () => const SizedBox.shrink(),
@@ -42,30 +49,25 @@ class TrashScreen extends ConsumerWidget {
             );
           }
 
-          return MasonryGridView.count(
+          return NoteGrid(
+            notes: notes,
             padding: const EdgeInsets.all(16),
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            itemCount: notes.length,
-            itemBuilder: (context, index) {
-              final note = notes[index];
-              return NoteCard(
-                key: ValueKey(note.id),
-                note: note,
-                showActions: false,
-                onTap: () => _showTrashItemActions(context, note, trashCtrl),
-              );
-            },
+            showActions: false,
+            onTap: (note) => _showTrashItemActions(context, note, trashCtrl),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+        loading: () =>
+            const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
         error: (err, _) => Center(child: Text('加载废纸篓失败: $err')),
       ),
     );
   }
 
-  void _showTrashItemActions(BuildContext context, Note note, TrashController trashCtrl) {
+  void _showTrashItemActions(
+    BuildContext context,
+    Note note,
+    TrashController trashCtrl,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -76,7 +78,10 @@ class TrashScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.restore_from_trash_rounded, color: Colors.green),
+              leading: const Icon(
+                Icons.restore_from_trash_rounded,
+                color: Colors.green,
+              ),
               title: const Text('恢复笔记到主列表'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -88,8 +93,14 @@ class TrashScreen extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
-              title: const Text('永久删除', style: TextStyle(color: Colors.redAccent)),
+              leading: const Icon(
+                Icons.delete_forever_rounded,
+                color: Colors.redAccent,
+              ),
+              title: const Text(
+                '永久删除',
+                style: TextStyle(color: Colors.redAccent),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _confirmPermanentDelete(context, note, trashCtrl);
@@ -102,7 +113,11 @@ class TrashScreen extends ConsumerWidget {
   }
 
   /// 单条笔记永久删除前的二次确认
-  void _confirmPermanentDelete(BuildContext context, Note note, TrashController trashCtrl) {
+  void _confirmPermanentDelete(
+    BuildContext context,
+    Note note,
+    TrashController trashCtrl,
+  ) {
     showDialog(
       context: context,
       builder: (dlgCtx) => AlertDialog(

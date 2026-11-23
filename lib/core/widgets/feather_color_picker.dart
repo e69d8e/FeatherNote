@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 
 /// 笔记主题色选择器
@@ -26,39 +27,52 @@ class FeatherColorPicker extends StatelessWidget {
           final border = colorPreset.border(isDark);
 
           return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () => onColorSelected(colorPreset.id),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: bg,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected ? colorPreset.accentColor : border,
-                    width: isSelected ? 2.5 : 1.2,
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: colorPreset.accentColor.withValues(alpha: 0.3),
-                            blurRadius: 6,
-                            spreadRadius: 1,
-                          )
-                        ]
-                      : null,
-                ),
-                child: isSelected
-                    ? Center(
-                        child: Icon(
-                          Icons.check_rounded,
-                          size: 20,
-                          color: colorPreset.accentColor,
+            padding: const EdgeInsets.only(right: 6),
+            child: Semantics(
+              button: true,
+              selected: isSelected,
+              label: colorPreset.name,
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: GestureDetector(
+                  onTap: () => onColorSelected(colorPreset.id),
+                  child: Center(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: bg,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected ? colorPreset.accentColor : border,
+                          width: isSelected ? 2.5 : 1.2,
                         ),
-                      )
-                    : null,
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: colorPreset.accentColor.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: isSelected
+                          ? Center(
+                              child: Icon(
+                                Icons.check_rounded,
+                                size: 20,
+                                color: colorPreset.accentColor,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
               ),
             ),
           );

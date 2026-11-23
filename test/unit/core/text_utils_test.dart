@@ -93,6 +93,28 @@ void main() {
       expect(snippet.contains('待办列表'), isTrue);
     });
 
+    test('待办复选框与列表符号不会残留', () {
+      const content = '- [x] 已完成任务\n- [ ] 未完成任务\n- 普通列表项\n1. 有序列表项';
+      final snippet = TextUtils.getSnippet(content, maxLength: 100);
+      expect(snippet, equals('已完成任务 未完成任务 普通列表项 有序列表项'));
+      expect(snippet.contains('- x'), isFalse);
+      expect(snippet.contains('[x]'), isFalse);
+    });
+
+    test('图片与链接保留可读文本', () {
+      const content = '![封面图](cover.png) 与 [官方网站](https://example.com)';
+      final snippet = TextUtils.getSnippet(content, maxLength: 100);
+      expect(snippet, equals('封面图 与 官方网站'));
+    });
+
+    test('代码围栏标记被移除', () {
+      const content = '```dart\nfinal value = 1;\n```';
+      final snippet = TextUtils.getSnippet(content, maxLength: 100);
+      expect(snippet.contains('```'), isFalse);
+      expect(snippet.contains('dart'), isFalse);
+      expect(snippet.contains('final value = 1;'), isTrue);
+    });
+
     test('超大内容窗口前置优化性能', () {
       final buffer = StringBuffer('前置关键内容摘要。');
       for (int i = 0; i < 5000; i++) {

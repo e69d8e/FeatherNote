@@ -22,7 +22,7 @@ void showAppSnackBar(
 
 /// 执行异步操作并统一反馈：成功显示可选的成功提示 (可带「撤销」)，失败显示错误提示。
 /// 在 await 之前捕获 ScaffoldMessenger 与配色，避免异步间隙后使用失效的 context。
-Future<void> runWithFeedback(
+Future<bool> runWithFeedback(
   BuildContext context,
   Future<void> Function() action, {
   String? successMessage,
@@ -40,10 +40,13 @@ Future<void> runWithFeedback(
           SnackBar(
             content: Text(successMessage),
             behavior: SnackBarBehavior.floating,
-            action: onUndo == null ? null : SnackBarAction(label: '撤销', onPressed: onUndo),
+            action: onUndo == null
+                ? null
+                : SnackBarAction(label: '撤销', onPressed: onUndo),
           ),
         );
     }
+    return true;
   } catch (e) {
     messenger
       ..hideCurrentSnackBar()
@@ -54,5 +57,6 @@ Future<void> runWithFeedback(
           behavior: SnackBarBehavior.floating,
         ),
       );
+    return false;
   }
 }

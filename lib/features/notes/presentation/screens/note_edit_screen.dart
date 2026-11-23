@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../../../core/utils/debouncer.dart';
 import '../../../../core/utils/text_utils.dart';
 import '../../../../core/widgets/feather_color_picker.dart';
+import '../../../../core/widgets/feather_content_width.dart';
 import '../../../../core/widgets/feather_dialog_text_field.dart';
 import '../../../../core/widgets/feather_tag_chip.dart';
 import '../../domain/models/note.dart';
@@ -30,7 +32,9 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   late final TextEditingController _contentController;
   final FocusNode _titleFocusNode = FocusNode();
   final FocusNode _contentFocusNode = FocusNode();
-  final Debouncer _editSyncDebouncer = Debouncer(delay: const Duration(milliseconds: 300));
+  final Debouncer _editSyncDebouncer = Debouncer(
+    delay: const Duration(milliseconds: 300),
+  );
   late final AppLifecycleListener _lifecycleListener;
   MarkdownStyleSheet? _cachedStyleSheet;
   Brightness? _cachedStyleSheetBrightness;
@@ -99,7 +103,10 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final colorPreset = AppColors.getNoteColor(state.note.colorId, isDark: isDark);
+    final colorPreset = AppColors.getNoteColor(
+      state.note.colorId,
+      isDark: isDark,
+    );
     final bgColor = colorPreset.background(isDark);
 
     if (state.isLoading) {
@@ -108,19 +115,23 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         appBar: AppBar(
           backgroundColor: bgColor,
           scrolledUnderElevation: 0,
+          leadingWidth: 44,
+          titleSpacing: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            tooltip: '返回',
             onPressed: () => context.pop(),
           ),
         ),
-        body: const Center(
-          child: CircularProgressIndicator(strokeWidth: 2.5),
-        ),
+        body: const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
       );
     }
 
     // 当远程/异步加载完成时同步输入框内容
     _syncControllers(state);
+
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final showSplitView = screenWidth >= 1000 && !state.isPreviewMode;
 
     return PopScope(
       canPop: true,
@@ -134,14 +145,19 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         appBar: AppBar(
           backgroundColor: bgColor,
           scrolledUnderElevation: 0,
+          leadingWidth: 44,
+          titleSpacing: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            tooltip: '返回',
             onPressed: () => context.pop(),
           ),
           title: Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -169,12 +185,14 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
               ],
             ),
           ),
-          centerTitle: true,
+          centerTitle: MediaQuery.sizeOf(context).width >= 380,
           actions: [
             // 置顶按钮
             IconButton(
               icon: Icon(
-                state.note.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                state.note.isPinned
+                    ? Icons.push_pin_rounded
+                    : Icons.push_pin_outlined,
                 color: state.note.isPinned ? colorPreset.accentColor : null,
                 size: 22,
               ),
@@ -203,26 +221,26 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                 final fresh = ref.read(noteEditProvider(widget.noteId));
                 switch (value) {
                   case 'color':
-                    _showColorPickerBottomSheet(context, notifier, fresh.note.colorId);
+                    _showColorPickerBottomSheet(
+                      context,
+                      notifier,
+                      fresh.note.colorId,
+                    );
                     break;
                   case 'archive':
                     final wasArchived = fresh.note.isArchived;
-                    await runWithFeedback(
-                      context,
-                      () async {
-                        notifier.toggleArchive();
-                      },
-                      successMessage: wasArchived ? '已移出归档' : '已归档笔记',
-                    );
+                    await runWithFeedback(context, () async {
+                      notifier.toggleArchive();
+                    }, successMessage: wasArchived ? '已移出归档' : '已归档笔记');
                     break;
                   case 'delete':
-                    await runWithFeedback(
+                    final deleted = await runWithFeedback(
                       context,
                       notifier.deleteNote,
                       successMessage: '已移入废纸篓',
                       failureTitle: '删除失败',
                     );
-                    if (context.mounted) context.pop();
+                    if (deleted && context.mounted) context.pop();
                     break;
                   case 'info':
                     _showNoteInfoDialog(context, fresh.note);
@@ -265,7 +283,11 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                      Icon(
+                        Icons.delete_outline_rounded,
+                        size: 18,
+                        color: Colors.redAccent,
+                      ),
                       SizedBox(width: 12),
                       Text('移入废纸篓', style: TextStyle(color: Colors.redAccent)),
                     ],
@@ -277,29 +299,56 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         ),
         body: Column(
           children: [
-            // 编辑 / 预览主体
+            // 编辑 / 预览主体（宽屏编辑时左右并排）
             Expanded(
-              child: state.isPreviewMode
-                  ? _buildMarkdownPreview(context, state, notifier)
-                  : _buildEditorContent(context, state, notifier),
+              child: showSplitView
+                  ? FeatherContentWidth(
+                      maxWidth: 1200,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: _buildEditorContent(
+                                    context,
+                                    state,
+                                    notifier,
+                                  ),
+                                ),
+                                _buildEditorBottomBar(state),
+                              ],
+                            ),
+                          ),
+                          VerticalDivider(
+                            width: 1,
+                            thickness: 1,
+                            color: theme.dividerColor.withValues(alpha: 0.25),
+                          ),
+                          Expanded(
+                            child: _buildMarkdownPreview(
+                              context,
+                              state,
+                              notifier,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : FeatherContentWidth(
+                      maxWidth: 760,
+                      child: state.isPreviewMode
+                          ? _buildMarkdownPreview(context, state, notifier)
+                          : _buildEditorContent(context, state, notifier),
+                    ),
             ),
 
-            // 底部 Markdown 快捷排版工具栏与状态栏 (仅编辑模式显示)
-            if (!state.isPreviewMode)
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 底部轻量状态条 (字数与保存状态)
-                  _NoteStatusBar(
-                    isSaving: state.isSaving,
-                    saveFailed: state.saveFailed,
-                    controller: _contentController,
-                  ),
-                  NoteEditorToolbar(
-                    contentController: _contentController,
-                    onContentChanged: _onTextChanged,
-                  ),
-                ],
+            // 底部 Markdown 快捷排版工具栏与状态栏 (仅编辑模式且非分栏时显示)
+            if (!state.isPreviewMode && !showSplitView)
+              FeatherContentWidth(
+                maxWidth: 760,
+                child: _buildEditorBottomBar(state),
               ),
           ],
         ),
@@ -318,46 +367,74 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? colorScheme.surfaceContainerHigh : Colors.white)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                fontSize: 12,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? colorScheme.surfaceContainerHigh : Colors.white)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
               ),
-            ),
-          ],
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  /// 底部字数状态与 Markdown 快捷工具栏
+  Widget _buildEditorBottomBar(NoteEditState state) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _NoteStatusBar(
+          isSaving: state.isSaving,
+          saveFailed: state.saveFailed,
+          controller: _contentController,
+        ),
+        NoteEditorToolbar(
+          contentController: _contentController,
+          onContentChanged: _onTextChanged,
+        ),
+      ],
     );
   }
 
@@ -383,23 +460,26 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
         children: [
           // 标题输入框
-          TextField(
-            controller: _titleController,
-            focusNode: _titleFocusNode,
-            textInputAction: TextInputAction.next,
-            onSubmitted: (_) => _contentFocusNode.requestFocus(),
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+          Semantics(
+            label: '笔记标题',
+            child: TextField(
+              controller: _titleController,
+              focusNode: _titleFocusNode,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _contentFocusNode.requestFocus(),
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              decoration: const InputDecoration(
+                hintText: '标题',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onChanged: (_) => _onTextChanged(),
             ),
-            decoration: const InputDecoration(
-              hintText: '标题',
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              filled: false,
-              contentPadding: EdgeInsets.zero,
-            ),
-            onChanged: (_) => _onTextChanged(),
           ),
 
           const SizedBox(height: 12),
@@ -421,7 +501,10 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                 onTap: () => _showAddTagToNoteDialog(context, notifier),
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: theme.colorScheme.outline.withValues(alpha: 0.3),
@@ -432,7 +515,11 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add, size: 14, color: theme.colorScheme.onSurfaceVariant),
+                      Icon(
+                        Icons.add,
+                        size: 14,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '标签',
@@ -450,25 +537,28 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
           const SizedBox(height: 16),
 
           // 正文输入框 (多行纸张画卷体验)
-          TextField(
-            controller: _contentController,
-            focusNode: _contentFocusNode,
-            maxLines: null,
-            minLines: 15,
-            keyboardType: TextInputType.multiline,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              height: 1.7,
-              fontSize: 15.5,
+          Semantics(
+            label: '笔记正文',
+            child: TextField(
+              controller: _contentController,
+              focusNode: _contentFocusNode,
+              maxLines: null,
+              minLines: 15,
+              keyboardType: TextInputType.multiline,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                height: 1.7,
+                fontSize: 15.5,
+              ),
+              decoration: const InputDecoration(
+                hintText: '记录灵感、清单或随想... 支持 Markdown',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onChanged: (_) => _onTextChanged(),
             ),
-            decoration: const InputDecoration(
-              hintText: '记录灵感、清单或随想... 支持 Markdown',
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              filled: false,
-              contentPadding: EdgeInsets.zero,
-            ),
-            onChanged: (_) => _onTextChanged(),
           ),
         ],
       ),
@@ -499,7 +589,10 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
-            final newContent = TextUtils.toggleCheckboxAt(state.note.content, thisIndex);
+            final newContent = TextUtils.toggleCheckboxAt(
+              state.note.content,
+              thisIndex,
+            );
             notifier.setContent(newContent);
             _contentController.text = newContent;
             notifier.saveImmediate();
@@ -507,9 +600,13 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
           child: Padding(
             padding: const EdgeInsets.only(right: 6, top: 2),
             child: Icon(
-              checked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+              checked
+                  ? Icons.check_box_rounded
+                  : Icons.check_box_outline_blank_rounded,
               size: 20,
-              color: checked ? colorScheme.primary : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+              color: checked
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
           ),
         );
@@ -522,7 +619,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   /// styleSheet 实例变化时丢弃已解析内容重新解析全文，缓存实例可避免
   /// 页面任意状态变化 (如保存指示器) 引发的整篇重新解析卡顿。
   MarkdownStyleSheet _markdownStyleSheetFor(ThemeData theme) {
-    if (_cachedStyleSheet == null || _cachedStyleSheetBrightness != theme.brightness) {
+    if (_cachedStyleSheet == null ||
+        _cachedStyleSheetBrightness != theme.brightness) {
       _cachedStyleSheetBrightness = theme.brightness;
       _cachedStyleSheet = _buildMarkdownStyleSheet(theme);
     }
@@ -549,7 +647,9 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
         ),
       ),
       code: TextStyle(
-        backgroundColor: isDark ? const Color(0xFF2C3238) : const Color(0xFFE8EEF5),
+        backgroundColor: isDark
+            ? const Color(0xFF2C3238)
+            : const Color(0xFFE8EEF5),
         fontFamily: 'monospace',
         fontSize: 13.5,
       ),
@@ -579,7 +679,8 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
             children: [
               Text(
                 '选择卡片主题色',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                style: Theme.of(context).textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 12),
               FeatherColorPicker(
@@ -597,7 +698,10 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
   }
 
   /// 弹出添加标签对话框
-  void _showAddTagToNoteDialog(BuildContext context, NoteEditNotifier notifier) {
+  void _showAddTagToNoteDialog(
+    BuildContext context,
+    NoteEditNotifier notifier,
+  ) {
     var text = '';
     showDialog(
       context: context,
@@ -672,7 +776,10 @@ class _NoteEditScreenState extends ConsumerState<NoteEditScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+        ),
       ],
     );
   }
@@ -713,7 +820,10 @@ class _NoteStatusBar extends StatelessWidget {
           }
           return Text(
             text,
-            style: theme.textTheme.bodySmall?.copyWith(color: color, fontSize: 11),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontSize: 11,
+            ),
           );
         },
       ),

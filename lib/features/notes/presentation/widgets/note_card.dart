@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/providers/database_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_feedback.dart';
@@ -14,12 +15,16 @@ class NoteCard extends ConsumerWidget {
   final Note note;
   final VoidCallback? onTap;
   final bool showActions;
+  final VoidCallback? onMoreTap;
+  final VoidCallback? onLongPress;
 
   const NoteCard({
     super.key,
     required this.note,
     this.onTap,
     this.showActions = true,
+    this.onMoreTap,
+    this.onLongPress,
   });
 
   @override
@@ -55,7 +60,9 @@ class NoteCard extends ConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
-          onLongPress: showActions ? () => _showQuickActions(context, ref) : null,
+          onLongPress: showActions
+              ? (onLongPress ?? () => _showQuickActions(context, ref))
+              : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
             child: Column(
@@ -112,17 +119,22 @@ class NoteCard extends ConsumerWidget {
                     runSpacing: 4,
                     children: note.tags.take(2).map((tag) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: colorPreset.accentColor.withValues(alpha: 0.12),
+                          color: colorPreset.accentColor.withValues(
+                            alpha: 0.12,
+                          ),
                           borderRadius: BorderRadius.circular(5),
                         ),
                         child: Text(
                           '#$tag',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 10,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w500,
-                            color: colorPreset.accentColor,
+                            color: colorPreset.tagTextColor(isDark),
                           ),
                         ),
                       );
@@ -139,17 +151,25 @@ class NoteCard extends ConsumerWidget {
                     Text(
                       DateFormatter.formatRelative(note.updatedAt),
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
-                        fontSize: 10.5,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 12,
                       ),
                     ),
                     if (showActions)
-                      GestureDetector(
-                        onTap: () => _showQuickActions(context, ref),
-                        child: Icon(
+                      IconButton(
+                        onPressed:
+                            onMoreTap ?? () => _showQuickActions(context, ref),
+                        tooltip: '更多操作',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
                           Icons.more_horiz_rounded,
                           size: 18,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                   ],
@@ -193,7 +213,9 @@ class NoteCard extends ConsumerWidget {
                 const Divider(),
                 ListTile(
                   leading: Icon(
-                    note.isPinned ? Icons.push_pin_outlined : Icons.push_pin_rounded,
+                    note.isPinned
+                        ? Icons.push_pin_outlined
+                        : Icons.push_pin_rounded,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   title: Text(note.isPinned ? '取消置顶' : '置顶笔记'),
@@ -219,15 +241,22 @@ class NoteCard extends ConsumerWidget {
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                  title: const Text('移入废纸篓', style: TextStyle(color: Colors.redAccent)),
+                  leading: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.redAccent,
+                  ),
+                  title: const Text(
+                    '移入废纸篓',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     runWithFeedback(
                       context,
                       () => listCtrl.softDelete(note),
                       successMessage: '已移入废纸篓',
-                      onUndo: () => ref.read(noteRepositoryProvider).restoreNote(note.id),
+                      onUndo: () =>
+                          ref.read(noteRepositoryProvider).restoreNote(note.id),
                     );
                   },
                 ),
