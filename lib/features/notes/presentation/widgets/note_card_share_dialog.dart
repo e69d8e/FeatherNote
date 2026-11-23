@@ -77,10 +77,12 @@ class _NoteCardShareDialogState extends State<NoteCardShareDialog> {
         name: fileName,
       );
 
-      await Share.shareXFiles(
-        [xFile],
-        text: '来自「羽记 · FeatherNote」',
-        subject: widget.note.displayTitle,
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [xFile],
+          text: '来自「羽记 · FeatherNote」',
+          subject: widget.note.displayTitle,
+        ),
       );
     } catch (e) {
       if (mounted) {

@@ -418,10 +418,18 @@ class SettingsScreen extends ConsumerWidget {
       String message;
       try {
         // Web 端优先调用系统分享；浏览器不支持时 share_plus 会自动下载文件。
-        final result = await Share.shareXFiles(
-          [XFile.fromData(bytes, mimeType: 'application/json', name: fileName)],
-          subject: '羽记备份',
-          text: '羽记备份：${notes.length} 条笔记，${tags.length} 个标签',
+        final result = await SharePlus.instance.share(
+          ShareParams(
+            files: [
+              XFile.fromData(
+                bytes,
+                mimeType: 'application/json',
+                name: fileName,
+              ),
+            ],
+            subject: '羽记备份',
+            text: '羽记备份：${notes.length} 条笔记，${tags.length} 个标签',
+          ),
         );
         message = switch (result.status) {
           ShareResultStatus.success => '备份文件已通过系统分享保存。',
@@ -506,19 +514,10 @@ class SettingsScreen extends ConsumerWidget {
               final picked = await FilePicker.pickFiles(
                 type: FileType.custom,
                 allowedExtensions: ['json'],
-                withData: true,
               );
-              if (picked == null || picked.files.isEmpty) return;
-              final file = picked.files.single;
-              // macOS 的 file_picker 不支持 withData，退回按路径读取。
-              final bytes =
-                  file.bytes ??
-                  (file.path == null
-                      ? null
-                      : await XFile(file.path!).readAsBytes());
-              if (bytes == null) {
-                throw StateError('无法读取所选文件内容');
-              }
+              if (picked.isEmpty) return;
+              final file = picked.first;
+              final bytes = await file.readAsBytes();
               final text = utf8.decode(bytes);
               if (!ctx.mounted) return;
               controller.text = text;
