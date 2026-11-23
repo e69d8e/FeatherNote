@@ -99,12 +99,14 @@ jobs:
           exit ${fail}
 
       - name: Organize Android artifacts
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag_name || github.ref_name }}
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          cp "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" "artifacts/FeatherNote-Android-arm64-v8a.apk"
-          cp "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" "artifacts/FeatherNote-Android-armeabi-v7a.apk"
-          cp "build/app/outputs/flutter-apk/app-release.apk" "artifacts/FeatherNote-Android-Universal.apk"
+          cp "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk" "artifacts/FeatherNote-Android-arm64-v8a-${RELEASE_TAG}.apk"
+          cp "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" "artifacts/FeatherNote-Android-armeabi-v7a-${RELEASE_TAG}.apk"
+          cp "build/app/outputs/flutter-apk/app-release.apk" "artifacts/FeatherNote-Android-Universal-${RELEASE_TAG}.apk"
           ls -lh artifacts
 
       - name: Upload Android artifacts
